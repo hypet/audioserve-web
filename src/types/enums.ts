@@ -50,6 +50,7 @@ export enum WSMessageInType {
   SwitchShuffleEvent,
   CurrentPosEvent,
   RewindToEvent,
+  VolumeChangeEvent,
 }
 
 export enum WSMessageOutType {
@@ -61,4 +62,5 @@ export enum WSMessageOutType {
   SwitchShuffle,
   CurrentPos,
   RewindTo,
+  VolumeChange,
 }

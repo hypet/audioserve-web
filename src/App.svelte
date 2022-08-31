@@ -45,8 +45,7 @@
   import { PlayItem } from "./types/play-item";
   import { formatWSMessage } from "./types/types";
   import type { WSMessage } from "./types/types";
-  import { writable } from "svelte/store";
-
+  
   export let cache: Cache;
   if (cache) {
     cache.maxParallelLoads = $config.maxParallelDownload;
@@ -62,11 +61,11 @@
       webSocket.send(JSON.stringify(regDeviceReq));
     });
     webSocket.addEventListener("error", err => {
-      console.error(`Web socket error`, err);
+      console.error(`/ws Web socket error`, err);
     });
     webSocket.addEventListener("close", close => {
       webSocket = null;
-      console.debug("Web socket close", close);
+      console.debug("/ws Web socket close", close);
     });
 
   setContext("webSocket", webSocket);

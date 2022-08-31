@@ -1,5 +1,5 @@
 # New audioserve web client 
-**[DEMO AVAILABLE](https://audioserve.zderadicka.eu) (shared secret: mypass)**
+Audioserve server for this client is here: https://github.com/hypet/audioserve.
   
 Main motivation is to try new technologies, so [Svelte](https://svelte.dev) and [TypeScript](https://www.typescriptlang.org/) are used as main languages and [PWA](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps) technologies are used.
 

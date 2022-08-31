@@ -77,6 +77,9 @@
             console.log("Started play of:", $playItem);
           })
           break;
+        case WSMessageInType.VolumeChangeEvent:
+          volumeControl = event["value"];
+          break;
       }
     });
 
@@ -187,14 +190,18 @@
     player.addEventListener("progress", updateBuffered);
   }
 
-  let volume: number = Number(
-    localStorage.getItem(StorageKeys.PLAYBACK_VOLUME) || 1.0
+  let volumeControl: number = Number(
+    localStorage.getItem(StorageKeys.PLAYBACK_VOLUME) || 100
   );
 
   $: {
-    localStorage.setItem(StorageKeys.PLAYBACK_VOLUME, volume.toString());
+    localStorage.setItem(StorageKeys.PLAYBACK_VOLUME, volumeControl.toString());
   }
 
+  let volume: number = Number(volumeControl / 100);
+  $: {
+    volume = (volumeControl || 100) / 100;
+  }
   let fileDisplayName = "";
   let filePath: string;
   let folder = "";
@@ -207,6 +214,11 @@
   let progressValue = 0;
   let progressValueChanging = false;
 
+  function onVolumeChange() {
+    let volumeChange: WSMessage = formatWSMessage(WSMessageOutType.VolumeChange, { value: volumeControl });
+    webSocket.send(JSON.stringify(volumeChange));
+  }
+
   const handleProgressMouseUp = () => {
     if (progressValueChanging) {
       window.removeEventListener("mouseup", handleProgressMouseUp);
@@ -215,9 +227,7 @@
         // on recent Chrome range value is sometime updated in next animation frame
         jumpTime(progressValue);
         if ($deviceId !== $activeDeviceId) {
-          let rewindTo: WSMessage = formatWSMessage(WSMessageOutType.RewindTo, 
-            { time: progressValue }
-          );
+          let rewindTo: WSMessage = formatWSMessage(WSMessageOutType.RewindTo, { time: progressValue });
           webSocket.send(JSON.stringify(rewindTo));
         }
         setTimeout(() => {
@@ -785,12 +795,13 @@
         name="volume"
         id="volume"
         min="0"
-        max="1"
-        step="0.01"
+        max="100"
+        step="1"
         aria-label="Volume"
-        bind:value={volume}
-      />
-      <span class="control-value">{volume.toFixed(2)}</span>
+        bind:value={volumeControl}
+        on:change={onVolumeChange}
+        />
+      <span class="control-value">{volumeControl}</span>
     </div>
 
     <div class="speed-control slider-control extra-control">
@@ -889,7 +900,7 @@
     bind:duration
     bind:currentTime={playbackTime}
     bind:paused
-    bind:volume
+    bind:volume={volume}
     bind:playbackRate
     bind:this={player}
     on:error={playerError}

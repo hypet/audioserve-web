@@ -38,7 +38,7 @@ export default {
 		sourcemap: !production,
 		format: 'iife',
 		name: 'app',
-		file: 'public/bundle.js'
+		file: '../audioserve/client/bundle.js'
 	},
 	plugins: [
 		replace(replaceConfig),
@@ -74,7 +74,7 @@ export default {
 
 		// Watch the `public` directory and refresh the
 		// browser on changes when not in production
-		!production && livereload('public'),
+		!production && livereload('../audioserve/client'),
 
 		// If we're building for production (npm run build
 		// instead of npm run dev), minify

@@ -272,24 +272,10 @@ export class AudioCache {
   }
 }
 
-class CacheBase {
-  protected isEnabled = true;
+export class NetworkFirstCache {
+  private isEnabled = true;
 
-  constructor(protected cacheName: string, protected sizeLimit = 1000) {}
-
-  enable() {
-    this.isEnabled = true;
-  }
-
-  disable() {
-    this.isEnabled = false;
-  }
-}
-
-export class NetworkFirstCache extends CacheBase {
-  constructor(cacheName: string, sizeLimit = 1000) {
-    super(cacheName, sizeLimit);
-  }
+  constructor(private cacheName: string, private sizeLimit = 1000) {}
 
   async handleRequest(evt: FetchEvent) {
     if (!this.isEnabled) return;
@@ -348,5 +334,13 @@ export class NetworkFirstCache extends CacheBase {
             });
         })
     );
+  }
+
+  enable() {
+    this.isEnabled = true;
+  }
+
+  disable() {
+    this.isEnabled = false;
   }
 }

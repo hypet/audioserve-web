@@ -8,7 +8,7 @@ export default {
 
   output: {
     sourcemap: !production,
-    dir: 'public',
+    dir: '../audioserve/client',
     format: 'es'
   },
   plugins: [

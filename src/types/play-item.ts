@@ -69,6 +69,7 @@ export class PlayItem {
     const basePath = get(apiConfig).basePath;
     const col = collection ?? get(selectedCollection);
     let url = basePath + "/" + col + "/audio/" + encodeURI(file.path);
+    // console.log("url: " + url);
     const query = new URLSearchParams();
     if (this.transcoding) {
       query.append("trans", this.transcoding);

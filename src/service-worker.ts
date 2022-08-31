@@ -129,17 +129,13 @@ self.addEventListener("fetch", (evt: FetchEvent) => {
   } else if (API_REG_EXP.test(parsedUrl.pathname)) {
     console.debug("API request " + parsedUrl.pathname);
     apiCacheHandler.handleRequest(evt);
-  } else if (
-    parsedUrl.pathname === globalPathPrefix ||
-    staticResources.indexOf(
-      parsedUrl.pathname.substring(globalPathPrefix.length)
-    ) >= 0
-  ) {
+  } else {
+    // console.debug(`Checking ${parsedUrl.pathname} against ${API_REG_EXP} result ${API_REG_EXP.test(parsedUrl.pathname)}`)
     evt.respondWith(
       caches.open(cacheName).then((cache) =>
         cache.match(evt.request).then((response) => {
           console.debug(
-            `STATIC request: ${parsedUrl.pathname}`,
+            `OTHER request: ${evt.request.url}`,
             evt.request,
             response
           );
@@ -147,7 +143,5 @@ self.addEventListener("fetch", (evt: FetchEvent) => {
         })
       )
     );
-  } else {
-    console.debug(`OTHER request: ${parsedUrl.pathname}`);
   }
 });

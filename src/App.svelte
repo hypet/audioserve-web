@@ -2,6 +2,7 @@
   import "@picocss/pico";
   import Login from "./components/Login.svelte";
   import Menu from "./components/Menu.svelte";
+  import DevicesOnline from "./components/DevicesOnline.svelte";
   import SearchIcon from "svelte-material-icons/Magnify.svelte";
   import CollectionsIcon from "svelte-material-icons/LibraryShelves.svelte";
   import CloseIcon from "svelte-material-icons/Close.svelte";
@@ -14,7 +15,6 @@
     colApi,
     isAuthenticated,
     collections,
-    transcodings,
     selectedCollection,
     config,
     currentFolder,
@@ -27,7 +27,8 @@
   import { deleteCookie } from "./util/auth";
   import CollectionSelector from "./components/CollectionSelector.svelte";
   import Browser from "./components/Browser.svelte";
-  import { FolderType, StorageKeys } from "./types/enums";
+  import { baseWsUrl, deviceName } from "./util/browser";
+  import { FolderType, StorageKeys, WSMessageInType, WSMessageOutType } from "./types/enums";
   import Breadcrumb from "./components/Breadcrumb.svelte";
   import { baseUrl, otherTheme } from "./util/browser";
   import { gainFocus } from "./util/dom";
@@ -39,9 +40,12 @@
   import { ShakeDetector } from "./util/movement";
   import ConfigEditor from "./components/ConfigEditor.svelte";
   import { HistoryWrapper, parseHistoryFragment } from "./util/history";
-  import { API_CACHE_NAME, SMALL_SCREEN_WIDTH_LIMIT } from "./types/constants";
+  import { API_CACHE_NAME } from "./types/constants";
   import Recent from "./components/Recent.svelte";
   import { PlayItem } from "./types/play-item";
+  import { formatWSMessage } from "./types/types";
+  import type { WSMessage } from "./types/types";
+  import { writable } from "svelte/store";
 
   export let cache: Cache;
   if (cache) {
@@ -51,6 +55,22 @@
   }
   export let initialHash: string | undefined;
 
+  export let webSocket: WebSocket = new WebSocket(baseWsUrl(true, 3000) + "/ws")
+    webSocket.addEventListener("open", () => {
+      console.log("/ws WebSocket opened")
+      let regDeviceReq: WSMessage = formatWSMessage(WSMessageOutType.RegisterDevice, { name: deviceName() });
+      webSocket.send(JSON.stringify(regDeviceReq));
+    });
+    webSocket.addEventListener("error", err => {
+      console.error(`Web socket error`, err);
+    });
+    webSocket.addEventListener("close", close => {
+      webSocket = null;
+      console.debug("Web socket close", close);
+    });
+
+  setContext("webSocket", webSocket);
+  
   if (initialHash) {
     const fld = parseHistoryFragment(initialHash);
     if (fld) {
@@ -80,27 +100,16 @@
 
   let container: HTMLDivElement;
   let browser: Browser;
-  let isInitialized = false;
 
   async function loadCollections() {
-    const res = Promise.all([
-      $colApi.collectionsGet().then((cols) => {
-        console.debug("Got collections list", cols);
-        $collections = cols;
-        let parsedCollection: number = parseInt(
-          localStorage.getItem(StorageKeys.LAST_COLLECTION) || "0"
-        );
-        if (parsedCollection >= cols.names.length) parsedCollection = 0;
-        $selectedCollection = parsedCollection;
-      }),
-      $colApi.transcodingsGet().then((trans) => {
-        console.debug("Got transcodings list", trans);
-        $transcodings = trans;
-      }),
-    ]);
-
-    await res;
-    isInitialized = true;
+    const cols = await $colApi.collectionsGet();
+    console.debug("Got collections list", cols);
+    $collections = cols;
+    let parsedCollection: number = parseInt(
+      localStorage.getItem(StorageKeys.LAST_COLLECTION) || "0"
+    );
+    if (parsedCollection >= cols.names.length) parsedCollection = 0;
+    $selectedCollection = parsedCollection;
   }
 
   function actOnMenu(menuEvt) {
@@ -211,7 +220,7 @@
   let smallScreen = false;
 
   windowSize.subscribe((sz) => {
-    if (sz.width <= SMALL_SCREEN_WIDTH_LIMIT) {
+    if (sz.width <= 770) {
       if (!smallScreen) {
         showSearch = false;
         showCollectionSelect = false;
@@ -442,6 +451,7 @@
                 </span>
               {/if}
             {/if}
+            <DevicesOnline />
             <Menu on:menu={actOnMenu} />
           </li>
         </ul>
@@ -463,9 +473,7 @@
     {:else}
       <Breadcrumb />
       <div class="browser" bind:this={container}>
-        {#if isInitialized}
-          <Browser {container} infoOpen={!smallScreen} bind:this={browser} />
-        {/if}
+        <Browser {container} infoOpen={!smallScreen} bind:this={browser} />
       </div>
     {/if}
     {#if $playItem}

@@ -206,11 +206,11 @@ export class CacheStorageCache implements Cache {
   }
 
   cacheAhead(urls: PrefetchRequest[], currentlyPlaying?: PrefetchPlaybackPosition) {
-    console.debug(
-      `Want to prefetch ${urls.length} files : ${urls
-        .map((i) => JSON.stringify(i))
-        .join(", ")}`
-    );
+    // console.debug(
+    //   `Want to prefetch ${urls.length} files : ${urls
+    //     .map((i) => JSON.stringify(i))
+    //     .join(", ")}`
+    // );
     if (this.queue.length > MAX_QUEUE_SIZE) {
       console.error("Prefecth queue is at max size, cannot add items");
       return;

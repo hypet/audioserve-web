@@ -63,6 +63,9 @@ export const currentFolder: Writable<CurrentFolder | undefined> =
 export const playItem: Writable<PlayItem> = writable(undefined);
 export const playList: Writable<CurrentPlayList> = writable(undefined);
 export const pendingDownloads: Writable<number> = writable(0);
+export const deviceId: Writable<String> = writable(undefined);
+export const activeDeviceId: Writable<String> = writable(undefined);
+// export const isLocalMode: Writable<Boolean> = writable(true);
 
 export const colApi = derived(
   apiConfig,

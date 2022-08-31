@@ -78,8 +78,4 @@
     background-color: var(--secondary-focus);
     margin-bottom: 1.5rem;
   }
-  .breadcrumb a {
-    padding-top: 0;
-    padding-bottom: 0;
-  }
 </style>

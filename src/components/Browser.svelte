@@ -10,19 +10,21 @@
 
   import type { AudioFile, PositionShort, Subfolder } from "../client";
   import {
+    activeDeviceId,
     apiConfig,
     colApi,
     collections,
     currentFolder,
+    deviceId,
     group,
     isAuthenticated,
     playItem,
     playList,
     selectedCollection,
   } from "../state/stores";
-  import { FolderType, NavigateTarget, StorageKeys } from "../types/enums";
+  import { FolderType, NavigateTarget, StorageKeys, WSMessageInType, WSMessageOutType } from "../types/enums";
   import { PlayItem } from "../types/play-item";
-  import type { AudioFileExt } from "../types/types";
+  import { AudioFileExt, formatWSMessage, WSMessage } from "../types/types";
   import { formatTime } from "../util/date";
   import {
     nonEmpty,
@@ -40,19 +42,24 @@
   import { Debouncer } from "../util/events";
   import Badge from "./Badge.svelte";
   import { Scroller } from "../util/dom";
-  import { Observer } from "../util/intersect";
 
   const cache: Cache = getContext("cache");
   const history: HistoryWrapper = getContext("history");
+  const webSocket: WebSocket = getContext("webSocket");
+  webSocket.addEventListener("message", evt => {
+      const wsMsg: WSMessage = JSON.parse(evt.data);
+      const msgType = Object.keys(wsMsg)[0];
+      const event = wsMsg[msgType];
+      const typedMsgType: WSMessageInType = WSMessageInType[msgType as keyof typeof WSMessageInType];
+      switch (typedMsgType) {
+        case WSMessageInType.PlayTrackEvent: 
+          playTrackFromTime(event["collection"], event["path"], event["track_position"]);
+          break;
+      }
+    });
 
+  // export const playTrack = (collection: number, path: string, track_position: number) => playTrackFromTime(collection, path, track_position);
   export let container: HTMLDivElement;
-  let observer: Observer;
-  $: {
-    if (container) {
-      observer = new Observer(container, { rootMargin: "64px" });
-    }
-  }
-
   export let infoOpen = false;
   export const navigate = (where: NavigateTarget) => {
     if (!folderIsPlaying()) {
@@ -143,7 +150,7 @@
         $selectedCollection,
         folder
       );
-      console.debug("Cached files for this folder", cachedPaths);
+      // console.debug("Cached files for this folder", cachedPaths);
 
       files =
         cachedPaths && cachedPaths.length > 0
@@ -202,7 +209,10 @@
       } else if (resp.status === 401) {
         $isAuthenticated = false;
       } else {
-        window.alert(`Failed to load folder ${$currentFolder}`);
+        window.alert("Failed to load folder, staying on current");
+        if (folderPath) {
+          $currentFolder = { type: FolderType.REGULAR, value: folderPath };
+        }
       }
     } finally {
       searchQuery = undefined;
@@ -236,11 +246,26 @@
   function playSharedPosition() {
     const idx = files.findIndex((f) => f.path === sharedPosition.path);
     if (idx >= 0) {
-      startPlaying(idx, true, sharedPosition.position);
+      startPlayingInner(idx, true, sharedPosition.position);
     }
   }
 
-  function startPlaying(position: number, startPlay = true, time?: number) {
+  function playTrackFromTime(collection: number, path: string, track_position: number) {
+    if ($selectedCollection != collection) {
+      $selectedCollection = collection;
+    }
+    const folder = splitPath(path).folder;
+    $currentFolder = { value: folder, type: FolderType.REGULAR };
+    let done = loadFolder(folder);
+    done.then(() => {
+      console.log("folder: " + folder);
+      if (track_position >= 0) {
+        startPlayingInner(track_position, true, 0);
+      }
+    });
+  }
+
+  function startPlayingInner(position: number, startPlay = true, time?: number) {
     const file = files[position];
     const item = new PlayItem({
       file,
@@ -248,15 +273,24 @@
       startPlay,
       time,
     });
-    console.debug("Action to start to play: " + item.url);
+    console.log("Action to start to play: " + item.url + " startPlay: " + startPlay);
     $playList = {
       files,
       collection: $selectedCollection,
       folder: $currentFolder.value,
       totalTime: folderTime,
-      hasImage: coverPath && coverPath.length > 0,
     };
     $playItem = item;
+  }
+
+  function startPlaying(position: number, startPlay = true, time?: number) {
+    startPlayingInner(position, startPlay, time);
+    if (startPlay) {
+      let playTrack: WSMessage = formatWSMessage(WSMessageOutType.PlayTrack, 
+        { collection: $selectedCollection, path: $playItem.path, track_position: $playItem.position }
+      );
+      webSocket.send(JSON.stringify(playTrack));
+    }
   }
 
   const unsubsribe: Unsubscriber[] = [];
@@ -266,7 +300,7 @@
       if (col != undefined) {
         // initiall app load
         if (folderPath === undefined) {
-          if (!$currentFolder) {
+          if (!currentFolder) {
             // restore last path from localStorage
             $currentFolder = {
               value: localStorage.getItem(StorageKeys.LAST_FOLDER) || "",
@@ -323,7 +357,7 @@
     const item = evt.item;
     if (item) {
       const cached = evt.kind === EventType.FileCached;
-      console.debug("File cached", item);
+      // console.debug("File cached", item);
       const { collection, path } = splitUrl(item.originalUrl, globalPathPrefix);
 
       // update folder
@@ -365,7 +399,6 @@
     unsubsribe.forEach((u) => u());
     cache?.removeListener(handleCacheEvent);
     container.removeEventListener("scroll", updateScroll);
-    observer.close();
   });
 
   function generateDownloadPath(): string {
@@ -401,7 +434,6 @@
           {#each subfolders as fld}
             <li on:click={navigateTo(fld.path)}>
               <FolderItem
-                {observer}
                 subfolder={fld}
                 extended={$currentFolder.type != FolderType.REGULAR}
                 finished={fld.finished}
@@ -458,31 +490,29 @@
       {#if coverPath || descriptionPath || nonEmpty(folderTags)}
         <details bind:open={infoOpen} role="complementary">
           <summary>Info</summary>
-          {#if infoOpen}
-            {#if coverPath}
-              <div id="folder-cover">
-                <Cover {coverPath} />
-              </div>
-            {/if}
-            {#if nonEmpty(folderTags)}
-              <div id="folder-tags">
-                <table role="grid">
-                  <tbody>
-                    {#each sorted(Object.keys(folderTags)) as k}
-                      <tr>
-                        <th>{k}</th>
-                        <td>{folderTags[k]}</td>
-                      </tr>
-                    {/each}
-                  </tbody>
-                </table>
-              </div>
-            {/if}
-            {#if descriptionPath}
-              <div id="folder-description">
-                <Description {descriptionPath} />
-              </div>
-            {/if}
+          {#if coverPath}
+            <div id="folder-cover">
+              <Cover {coverPath} />
+            </div>
+          {/if}
+          {#if nonEmpty(folderTags)}
+            <div id="folder-tags">
+              <table role="grid">
+                <tbody>
+                  {#each sorted(Object.keys(folderTags)) as k}
+                    <tr>
+                      <th>{k}</th>
+                      <td>{folderTags[k]}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {/if}
+          {#if descriptionPath}
+            <div id="folder-description">
+              <Description {descriptionPath} />
+            </div>
           {/if}
         </details>
       {/if}

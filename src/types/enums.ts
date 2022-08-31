@@ -39,3 +39,26 @@ Object.keys(TranscodingCode).forEach((k: TranscodingName) =>
 
 export const transcodingNameToCode = (n: TranscodingName) => TranscodingCode[n];
 export const transcodingCodeToName = (c: string) => reverseTranscoding.get(c);
+
+export enum WSMessageInType {
+  RegisterDeviceEvent,
+  DevicesOnlineEvent,
+  MakeDeviceActiveEvent,
+  PlayTrackEvent,
+  PauseEvent,
+  ResumeEvent,
+  SwitchShuffleEvent,
+  CurrentPosEvent,
+  RewindToEvent,
+}
+
+export enum WSMessageOutType {
+  RegisterDevice,
+  MakeDeviceActive,
+  PlayTrack,
+  Pause,
+  Resume,
+  SwitchShuffle,
+  CurrentPos,
+  RewindTo,
+}

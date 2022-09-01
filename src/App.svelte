@@ -45,6 +45,7 @@
   import { PlayItem } from "./types/play-item";
   import { formatWSMessage } from "./types/types";
   import type { WSMessage } from "./types/types";
+import Shuffle from "./components/Shuffle.svelte";
   
   export let cache: Cache;
   if (cache) {
@@ -450,6 +451,7 @@
                 </span>
               {/if}
             {/if}
+            <Shuffle />
             <DevicesOnline />
             <Menu on:menu={actOnMenu} />
           </li>

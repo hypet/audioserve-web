@@ -37,9 +37,10 @@
     selectedCollection,
     windowSize,
     deviceId,
-    activeDeviceId
+    activeDeviceId,
+    activeShuffleMode,
   } from "../state/stores";
-  import { FolderType, NavigateTarget, StorageKeys, WSMessageInType, WSMessageOutType } from "../types/enums";
+  import { FolderType, NavigateTarget, ShuffleMode, StorageKeys, WSMessageInType, WSMessageOutType } from "../types/enums";
   import { PlayItem } from "../types/play-item";
   import { formatTime } from "../util/date";
   import { splitExtInName, splitPath, splitRootPath, splitUrl } from "../util";
@@ -51,6 +52,9 @@
 
   const webSocket: WebSocket = getContext("webSocket");
   webSocket.addEventListener("message", evt => {
+      if (!evt.data.startsWith("{\"CurrentPosEvent")) {
+        console.log("msg from srv: ", evt.data);
+      }
       const wsMsg: WSMessage = JSON.parse(evt.data);
       const msgType = Object.keys(wsMsg)[0];
       const event = wsMsg[msgType];
@@ -610,7 +614,7 @@
         `Playback ended at ${currentTime} before expected duration ${expectedDuration}, maybe problem with cached version`
       );
     } else {
-      console.debug(`File ${$playItem.name} on ${$playItem.path} finished`);
+      console.log(`File ${$playItem.name} on ${$playItem.path} finished`);
     }
     if (wantPlay) {
       const nextPosition = $playItem.position + 1;
@@ -634,8 +638,9 @@
       });
       $playItem = item;
 
+      const folder = splitPath($playItem.path).folder;
       let playTrack: WSMessage = formatWSMessage(WSMessageOutType.PlayTrack, 
-        { collection: $selectedCollection, path: $playItem.path, track_position: $playItem.position }
+        { collection: $selectedCollection, dir: folder, track_position: $playItem.position }
       );
       webSocket.send(JSON.stringify(playTrack));
     }
@@ -654,16 +659,23 @@
   }
 
   function playNext() {
-    playPosition($playItem.position + 1, !paused);
+    if ($activeShuffleMode.toString === ShuffleMode[ShuffleMode.Off].toString) {
+      playPosition($playItem.position + 1, !paused);
+    } else {
+      let nextTrack: WSMessage = formatWSMessage(WSMessageOutType.NextTrack, { collection: $selectedCollection, dir: folder });
+      webSocket.send(JSON.stringify(nextTrack));
+    }
   }
 
   function updateBuffered() {
     const arr = [];
-    for (let i = 0; i < player.buffered.length; i++) {
-      arr.push({
-        start: timeOffset + player.buffered.start(i),
-        end: timeOffset + player.buffered.end(i),
-      });
+    if (player) {
+      for (let i = 0; i < player.buffered.length; i++) {
+        arr.push({
+          start: timeOffset + player.buffered.start(i),
+          end: timeOffset + player.buffered.end(i),
+        });
+      }
     }
     const is_different = () => {
       if (buffered.length != arr.length) {

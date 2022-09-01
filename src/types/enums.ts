@@ -40,6 +40,13 @@ Object.keys(TranscodingCode).forEach((k: TranscodingName) =>
 export const transcodingNameToCode = (n: TranscodingName) => TranscodingCode[n];
 export const transcodingCodeToName = (c: string) => reverseTranscoding.get(c);
 
+export enum ShuffleMode {
+  Off,
+  CurrentDir,
+  CollectionWide,
+  Global,
+}
+
 export enum WSMessageInType {
   RegisterDeviceEvent,
   DevicesOnlineEvent,
@@ -59,6 +66,7 @@ export enum WSMessageOutType {
   PlayTrack,
   Pause,
   Resume,
+  NextTrack,
   SwitchShuffle,
   CurrentPos,
   RewindTo,

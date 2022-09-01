@@ -53,12 +53,11 @@
       const typedMsgType: WSMessageInType = WSMessageInType[msgType as keyof typeof WSMessageInType];
       switch (typedMsgType) {
         case WSMessageInType.PlayTrackEvent: 
-          playTrackFromTime(event["collection"], event["path"], event["track_position"]);
+          playTrackFromTime(event["collection"], event["dir"], event["track_position"]);
           break;
       }
     });
 
-  // export const playTrack = (collection: number, path: string, track_position: number) => playTrackFromTime(collection, path, track_position);
   export let container: HTMLDivElement;
   export let infoOpen = false;
   export const navigate = (where: NavigateTarget) => {
@@ -250,11 +249,10 @@
     }
   }
 
-  function playTrackFromTime(collection: number, path: string, track_position: number) {
+  function playTrackFromTime(collection: number, folder: string, track_position: number) {
     if ($selectedCollection != collection) {
       $selectedCollection = collection;
     }
-    const folder = splitPath(path).folder;
     $currentFolder = { value: folder, type: FolderType.REGULAR };
     let done = loadFolder(folder);
     done.then(() => {
@@ -286,8 +284,9 @@
   function startPlaying(position: number, startPlay = true, time?: number) {
     startPlayingInner(position, startPlay, time);
     if (startPlay) {
+      const folder = splitPath($playItem.path).folder;
       let playTrack: WSMessage = formatWSMessage(WSMessageOutType.PlayTrack, 
-        { collection: $selectedCollection, path: $playItem.path, track_position: $playItem.position }
+        { collection: $selectedCollection, dir: folder, track_position: $playItem.position }
       );
       webSocket.send(JSON.stringify(playTrack));
     }

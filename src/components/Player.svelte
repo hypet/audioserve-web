@@ -260,7 +260,7 @@
       progressValue = currentTime;
     }
     updateMediaSessionState();
-    lastPositionThrottler.throttle(currentTime);
+    // lastPositionThrottler.throttle(currentTime);
   }
 
   async function loadTime(time: number, startPlayback = false) {
@@ -655,11 +655,17 @@
   }
 
   function playPrevious() {
-    playPosition($playItem.position - 1, !paused);
+    if (ShuffleMode[$activeShuffleMode] === ShuffleMode[ShuffleMode.Off]) {
+      playPosition($playItem.position - 1, !paused);
+    } else {
+      let prevTrack: WSMessage = formatWSMessage(WSMessageOutType.PrevTrack, { collection: $selectedCollection, dir: folder });
+      webSocket.send(JSON.stringify(prevTrack));
+    }
   }
 
   function playNext() {
-    if ($activeShuffleMode.toString === ShuffleMode[ShuffleMode.Off].toString) {
+    console.log("playNext: ", ShuffleMode[$activeShuffleMode], ShuffleMode[ShuffleMode.Off]);
+    if (ShuffleMode[$activeShuffleMode] === ShuffleMode[ShuffleMode.Off]) {
       playPosition($playItem.position + 1, !paused);
     } else {
       let nextTrack: WSMessage = formatWSMessage(WSMessageOutType.NextTrack, { collection: $selectedCollection, dir: folder });
@@ -908,7 +914,6 @@
   <audio
     preload="none"
     crossorigin="use-credentials"
-    autoplay="" muted="" playsinline=""
     bind:duration
     bind:currentTime={playbackTime}
     bind:paused

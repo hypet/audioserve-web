@@ -26,6 +26,8 @@
       .filter((value => isNaN(Number(value)) === false))
       .map(key => ShuffleMode[key]);
 
+  $activeShuffleMode = ShuffleMode.Off;
+
   function updateShuffleMode() {
     let switchShuffle: WSMessage = formatWSMessage(WSMessageOutType.SwitchShuffle, { mode: $activeShuffleMode });
     webSocket.send(JSON.stringify(switchShuffle));

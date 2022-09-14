@@ -32,10 +32,10 @@ function mapWsProtocol(p: string) {
   }
 }
 
-export function baseWsUrl(dev: boolean, port: number): string {
+export function baseWsUrl(dev: boolean): string {
   let  baseUrl = dev
     ? `${mapWsProtocol(window.location.protocol)}//${
-        window.location.hostname}:${port}`
+        window.location.hostname}:${window.location.port}`
     : `${mapWsProtocol(window.location.protocol)}//${window.location.host}`;
 
   const path = getLocationPath()

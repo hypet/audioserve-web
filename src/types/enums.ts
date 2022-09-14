@@ -67,6 +67,7 @@ export enum WSMessageOutType {
   Pause,
   Resume,
   NextTrack,
+  PrevTrack,
   SwitchShuffle,
   CurrentPos,
   RewindTo,

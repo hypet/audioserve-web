@@ -55,7 +55,7 @@ import Shuffle from "./components/Shuffle.svelte";
   }
   export let initialHash: string | undefined;
 
-  export let webSocket: WebSocket = new WebSocket(baseWsUrl(true, 3000) + "/ws")
+  export let webSocket: WebSocket = new WebSocket(baseWsUrl(true) + "/ws")
     webSocket.addEventListener("open", () => {
       console.log("/ws WebSocket opened")
       let regDeviceReq: WSMessage = formatWSMessage(WSMessageOutType.RegisterDevice, { name: deviceName() });

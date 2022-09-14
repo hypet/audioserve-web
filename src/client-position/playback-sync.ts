@@ -39,7 +39,7 @@ export class PlaybackSync {
 
     constructor(config: PlaybackSyncConfig) {
 
-        this.socketUrl = baseWsUrl(config.development, config.developmentPort) + "/position";
+        this.socketUrl = baseWsUrl(config.development) + "/position";
         this.closed = false;
         this.filePath = null;
         this._groupPrefix = null;

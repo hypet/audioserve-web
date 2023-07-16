@@ -1,7 +1,8 @@
 <script lang="ts">
   import { getContext, onDestroy, onMount } from "svelte";
   import type { Unsubscriber } from "svelte/store";
-  import { Cache, CacheEvent, EventType } from "../cache";
+  import { EventType } from "../cache";
+  import type { Cache, CacheEvent } from "../cache";
   import ContinuePlay from "svelte-material-icons/PlayCircleOutline.svelte";
   import SortNameIcon from "svelte-material-icons/SortAlphabeticalAscending.svelte";
   import SortTimeIcon from "svelte-material-icons/SortClockAscendingOutline.svelte";
@@ -10,21 +11,19 @@
 
   import type { AudioFile, PositionShort, Subfolder } from "../client";
   import {
-    activeDeviceId,
     apiConfig,
     colApi,
     collections,
     currentFolder,
-    deviceId,
     group,
     isAuthenticated,
     playItem,
     playList,
     selectedCollection,
   } from "../state/stores";
-  import { FolderType, NavigateTarget, StorageKeys, WSMessageInType, WSMessageOutType } from "../types/enums";
+  import { FolderType, NavigateTarget, StorageKeys } from "../types/enums";
   import { PlayItem } from "../types/play-item";
-  import { AudioFileExt, formatWSMessage, WSMessage } from "../types/types";
+  import type { AudioFileExt } from "../types/types";
   import { formatTime } from "../util/date";
   import {
     nonEmpty,
@@ -42,25 +41,22 @@
   import { Debouncer } from "../util/events";
   import Badge from "./Badge.svelte";
   import { Scroller } from "../util/dom";
+  import { Observer } from "../util/intersect";
 
   const cache: Cache = getContext("cache");
   const history: HistoryWrapper = getContext("history");
-  const webSocket: WebSocket = getContext("webSocket");
-  webSocket.addEventListener("message", evt => {
-      const wsMsg: WSMessage = JSON.parse(evt.data);
-      const msgType = Object.keys(wsMsg)[0];
-      const event = wsMsg[msgType];
-      const typedMsgType: WSMessageInType = WSMessageInType[msgType as keyof typeof WSMessageInType];
-      switch (typedMsgType) {
-        case WSMessageInType.PlayTrackEvent: 
-          playTrackFromTime(event["collection"], event["dir"], event["track_position"]);
-          break;
-      }
-    });
 
   export let container: HTMLDivElement;
+  let observer: Observer;
+  $: {
+    if (container) {
+      observer = new Observer(container, { rootMargin: "64px" });
+    }
+  }
+
   export let infoOpen = false;
   export const navigate = (where: NavigateTarget) => {
+    console.debug("navigate");    
     if (!folderIsPlaying()) {
       $selectedCollection = $playList.collection;
       $currentFolder = { value: $playList.folder, type: FolderType.REGULAR };
@@ -68,7 +64,7 @@
       const elem: HTMLElement = document.querySelector("div.item.active");
       if (elem != null) {
         const scroller = new Scroller(container);
-        scroller.scrollToView(elem);
+        scroller.scrollToView(elem.parentElement);
       }
     }
   };
@@ -140,6 +136,7 @@
 
   async function loadFolder(folder: string) {
     try {
+      console.debug("loadFolder");
       const audioFolder = await $colApi.colIdFolderPathGet({
         colId: $selectedCollection,
         path: folder,
@@ -149,7 +146,7 @@
         $selectedCollection,
         folder
       );
-      // console.debug("Cached files for this folder", cachedPaths);
+      console.debug("Cached files for this folder", cachedPaths);
 
       files =
         cachedPaths && cachedPaths.length > 0
@@ -208,10 +205,53 @@
       } else if (resp.status === 401) {
         $isAuthenticated = false;
       } else {
-        window.alert("Failed to load folder, staying on current");
-        if (folderPath) {
-          $currentFolder = { type: FolderType.REGULAR, value: folderPath };
-        }
+        window.alert(`Failed to load folder ${$currentFolder}`);
+      }
+    } finally {
+      searchQuery = undefined;
+    }
+  }
+
+  export async function loadAll() {
+    try {
+      console.debug("loadAll");
+      const folder = "";
+      const audioFolder = await $colApi.colIdAll({
+        colId: $selectedCollection,
+      });
+
+      files = audioFolder.files!;
+        // cachedPaths && cachedPaths.length > 0
+        //   ? audioFolder.files!.map((file: AudioFileExt) => {
+        //       if (cachedPaths.indexOf(file.path) >= 0) {
+        //         file.cached = true;
+        //       }
+        //       return file;
+        //     })
+        //   : audioFolder.files!;
+      subfolders = sortSubfolders(audioFolder.subfolders!);
+      localStorage.setItem(StorageKeys.LAST_FOLDER, folder);
+
+      folderTime = audioFolder.totalTime;
+      folderTags = audioFolder.tags;
+      descriptionPath = audioFolder.description?.path;
+      coverPath = audioFolder.cover?.path;
+
+      folderPath = folder;
+      isCollapsed = !audioFolder.isFile && audioFolder.isCollapsed;
+      console.debug("loadAll end");
+    } catch (resp) {
+      console.error("Cannot load all", resp);
+      if (resp.status === 404) {
+        console.error("loadAll not found")
+        $currentFolder = { value: "", type: FolderType.REGULAR };
+      } else if (resp.status === 401) {
+        $isAuthenticated = false;
+      // } else {
+      //   window.alert("Failed to load folder, staying on current");
+      //   if (folderPath) {
+      //     $currentFolder = { type: FolderType.REGULAR, value: "" };
+      //   }
       }
     } finally {
       searchQuery = undefined;
@@ -238,6 +278,7 @@
 
   function navigateTo(folder: string) {
     return () => {
+      console.debug("navigateTo");
       $currentFolder = { value: folder, type: FolderType.REGULAR };
     };
   }
@@ -245,25 +286,11 @@
   function playSharedPosition() {
     const idx = files.findIndex((f) => f.path === sharedPosition.path);
     if (idx >= 0) {
-      startPlayingInner(idx, true, sharedPosition.position);
+      startPlaying(idx, true, sharedPosition.position);
     }
   }
 
-  function playTrackFromTime(collection: number, folder: string, track_position: number) {
-    if ($selectedCollection != collection) {
-      $selectedCollection = collection;
-    }
-    $currentFolder = { value: folder, type: FolderType.REGULAR };
-    let done = loadFolder(folder);
-    done.then(() => {
-      console.log("folder: " + folder);
-      if (track_position >= 0) {
-        startPlayingInner(track_position, true, 0);
-      }
-    });
-  }
-
-  function startPlayingInner(position: number, startPlay = true, time?: number) {
+  function startPlaying(position: number, startPlay = true, time?: number) {
     const file = files[position];
     const item = new PlayItem({
       file,
@@ -271,35 +298,32 @@
       startPlay,
       time,
     });
-    console.log("Action to start to play: " + item.url + " startPlay: " + startPlay);
+    console.debug("Action to start to play: " + item.id);
+    // let playTrackEvent = { { track: }};
+    // webSocket.send(JSON.stringify(playTrackEvent));
+    // webSocket.send("{ trackId: \"" + item.id + "\" }");
     $playList = {
       files,
       collection: $selectedCollection,
       folder: $currentFolder.value,
       totalTime: folderTime,
+      hasImage: coverPath && coverPath.length > 0,
     };
     $playItem = item;
-  }
-
-  function startPlaying(position: number, startPlay = true, time?: number) {
-    startPlayingInner(position, startPlay, time);
-    if (startPlay) {
-      const folder = splitPath($playItem.path).folder;
-      let playTrack: WSMessage = formatWSMessage(WSMessageOutType.PlayTrack, 
-        { collection: $selectedCollection, dir: folder, track_position: $playItem.position }
-      );
-      webSocket.send(JSON.stringify(playTrack));
-    }
+    console.debug("startPlaying end");
   }
 
   const unsubsribe: Unsubscriber[] = [];
 
+  console.debug("unsubsribe");
   unsubsribe.push(
     selectedCollection.subscribe((col) => {
       if (col != undefined) {
+        console.debug("folderPath", folderPath);
+        loadAll();
         // initiall app load
         if (folderPath === undefined) {
-          if (!currentFolder) {
+          if (!$currentFolder) {
             // restore last path from localStorage
             $currentFolder = {
               value: localStorage.getItem(StorageKeys.LAST_FOLDER) || "",
@@ -312,7 +336,8 @@
           if (folderPath === "") {
             // TODO: fix it by having currentFolder as object
             // have to enforce reload
-            loadFolder("");
+            // loadFolder("");
+            loadAll();
           }
         }
         localStorage.setItem(
@@ -332,12 +357,16 @@
   }
 
   $: if ($currentFolder != undefined) {
+    console.debug("if undefined");
     let done: Promise<void>;
     const scrollTo = $currentFolder.scrollTo;
     if ($currentFolder.type === FolderType.REGULAR) {
-      done = loadFolder($currentFolder.value);
+      done = loadAll();
+      // done = loadFolder($currentFolder.value);
     } else if ($currentFolder.type === FolderType.SEARCH) {
       done = searchFor($currentFolder.value);
+    // } else if ($currentFolder.type === FolderType.REGULAR) {
+      // done = loadAll();
     }
 
     done.then(() => {
@@ -356,7 +385,7 @@
     const item = evt.item;
     if (item) {
       const cached = evt.kind === EventType.FileCached;
-      // console.debug("File cached", item);
+      console.debug("File cached", item);
       const { collection, path } = splitUrl(item.originalUrl, globalPathPrefix);
 
       // update folder
@@ -374,6 +403,7 @@
         if ($playList.collection == collection && $playList.folder == folder) {
           playList.update((pl) => {
             const position = pl.files.findIndex((f) => f.path == path);
+            console.debug("position:", position);
             if (position >= 0) {
               pl.files[position].cached = cached;
             }
@@ -398,12 +428,13 @@
     unsubsribe.forEach((u) => u());
     cache?.removeListener(handleCacheEvent);
     container.removeEventListener("scroll", updateScroll);
+    observer.close();
   });
 
   function generateDownloadPath(): string {
     return (
       $apiConfig.basePath +
-      `/${$selectedCollection}/download/${encodeURI(folderPath)}` +
+      `/${$selectedCollection}/download/${encodeURIComponent(folderPath)}` +
       (isCollapsed ? "?collapsed" : "")
     );
   }
@@ -433,6 +464,7 @@
           {#each subfolders as fld}
             <li on:click={navigateTo(fld.path)}>
               <FolderItem
+                {observer}
                 subfolder={fld}
                 extended={$currentFolder.type != FolderType.REGULAR}
                 finished={fld.finished}
@@ -489,29 +521,31 @@
       {#if coverPath || descriptionPath || nonEmpty(folderTags)}
         <details bind:open={infoOpen} role="complementary">
           <summary>Info</summary>
-          {#if coverPath}
-            <div id="folder-cover">
-              <Cover {coverPath} />
-            </div>
-          {/if}
-          {#if nonEmpty(folderTags)}
-            <div id="folder-tags">
-              <table role="grid">
-                <tbody>
-                  {#each sorted(Object.keys(folderTags)) as k}
-                    <tr>
-                      <th>{k}</th>
-                      <td>{folderTags[k]}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          {/if}
-          {#if descriptionPath}
-            <div id="folder-description">
-              <Description {descriptionPath} />
-            </div>
+          {#if infoOpen}
+            {#if coverPath}
+              <div id="folder-cover">
+                <Cover {coverPath} />
+              </div>
+            {/if}
+            {#if nonEmpty(folderTags)}
+              <div id="folder-tags">
+                <table role="grid">
+                  <tbody>
+                    {#each sorted(Object.keys(folderTags)) as k}
+                      <tr>
+                        <th>{k}</th>
+                        <td>{folderTags[k]}</td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            {/if}
+            {#if descriptionPath}
+              <div id="folder-description">
+                <Description {descriptionPath} />
+              </div>
+            {/if}
           {/if}
         </details>
       {/if}

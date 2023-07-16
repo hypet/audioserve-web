@@ -1,4 +1,4 @@
-<script type="ts">
+<script lang="ts">
   import { currentFolder, selectedCollection } from "../state/stores";
   import { FolderType } from "../types/enums";
   import { constructHistoryFragment } from "../util/history";
@@ -9,6 +9,8 @@
 
   $: {
     if ($currentFolder?.type === FolderType.REGULAR) {
+      console.debug("currentFolder type REG");
+            
       pathSegments = $currentFolder.value?.split("/") || [];
       folderType = FolderType.REGULAR;
     } else if ($currentFolder?.type === FolderType.SEARCH) {
@@ -18,6 +20,11 @@
   }
 
   function goHome() {
+    $currentFolder = { value: "", type: FolderType.REGULAR };
+  }
+
+  function goAll() {
+    console.debug("goAll");
     $currentFolder = { value: "", type: FolderType.REGULAR };
   }
 
@@ -44,6 +51,15 @@
       })}
       on:click|preventDefault={goHome}
       aria-current={pathSegments.length === 0 ? "page" : null}>Home</a
+    >
+    <a
+      href={constructHistoryFragment({
+        folderType: FolderType.REGULAR,
+        collection: $selectedCollection,
+        value: "",
+      })}
+      on:click|preventDefault={goAll}
+      aria-current={pathSegments.length === 0 ? "page" : null}>All</a
     >
     {#each pathSegments as seg, idx}
       <!-- svelte-ignore a11y-invalid-attribute -->
@@ -77,5 +93,9 @@
     padding: 0.5rem;
     background-color: var(--secondary-focus);
     margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    padding-top: 0;
+    padding-bottom: 0;
   }
 </style>

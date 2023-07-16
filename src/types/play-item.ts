@@ -17,6 +17,7 @@ export interface PlayItemParams {
 }
 
 export class PlayItem {
+  id: number;
   url: string;
   duration: number;
   name: string;
@@ -31,7 +32,8 @@ export class PlayItem {
 
   constructor(params: PlayItemParams) {
     this.checkNeedsTranscoding(params.file);
-    this.url = this.constructURL(params.file, params.collection);
+    this.id = params.file.id;
+    this.url = this.constructURLWithId(params.file.id, params.collection);
     this.duration = params.file.meta?.duration;
     this.name = params.file.name;
     this.path = params.file.path;
@@ -68,8 +70,22 @@ export class PlayItem {
   private constructURL(file: AudioFileExt, collection?: number) {
     const basePath = get(apiConfig).basePath;
     const col = collection ?? get(selectedCollection);
-    let url = basePath + "/" + col + "/audio/" + encodeURI(file.path);
-    // console.log("url: " + url);
+    let url = basePath + "/" + col + "/audio/" + encodeURIComponent(file.path);
+    const query = new URLSearchParams();
+    if (this.transcoding) {
+      query.append("trans", this.transcoding);
+    }
+    const queryString = query.toString();
+    if (queryString) {
+      url += "?" + queryString;
+    }
+    return url;
+  }
+
+  private constructURLWithId(track_id: number, collection?: number) {
+    const basePath = get(apiConfig).basePath;
+    const col = collection ?? get(selectedCollection);
+    let url = basePath + "/" + col + "/media/" + track_id;
     const query = new URLSearchParams();
     if (this.transcoding) {
       query.append("trans", this.transcoding);

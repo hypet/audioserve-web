@@ -1,7 +1,12 @@
 import type { Cache } from ".";
 import { EventType } from ".";
-import { removeQuery, splitPath } from "../util";
-import type { CachedItem, CacheEventHandler, PrefetchPlaybackPosition, PrefetchRequest } from "./types";
+import { encodePathParameter, removeQuery, splitPath } from "../util";
+import type {
+  CachedItem,
+  CacheEventHandler,
+  PrefetchPlaybackPosition,
+  PrefetchRequest,
+} from "./types";
 
 export const AUDIO_CACHE_NAME = "audio";
 export const AUDIO_CACHE_LIMIT = 1000;
@@ -38,7 +43,7 @@ class QueueItem {
 export class CacheStorageCache implements Cache {
   private queue: QueueItem[] = [];
   private queueChangedCB: (n: number) => void;
-  private processing:QueueItem[] = [];
+  private processing: QueueItem[] = [];
   private listeners: CacheEventHandler[] = [];
   private worker: ServiceWorker;
   private poller: number = null;
@@ -129,7 +134,9 @@ export class CacheStorageCache implements Cache {
         for (let i = 0; i < this.processing.length; i++) {
           const keyUrl = removeQuery(this.processing[i].url);
           if (msg.data.pendingAudio.indexOf(keyUrl) < 0) {
-            console.warn(`Prefetch of ${keyUrl} was not finished in service worker`);
+            console.warn(
+              `Prefetch of ${keyUrl} was not finished in service worker`
+            );
             toDelete.push(i);
           }
         }
@@ -145,7 +152,7 @@ export class CacheStorageCache implements Cache {
       if (msg.data.error && msg.data.error.name === "AbortError") {
         console.debug(`Prefetch of ${msg.data.originalUrl} was aborted`);
       } else {
-        console.error(`Prefetch error`, msg.data)
+        console.error(`Prefetch error`, msg.data);
       }
     } else {
       console.error("Cache message from service worker error", msg);
@@ -192,7 +199,7 @@ export class CacheStorageCache implements Cache {
         return keys
           .map((req) => {
             const parsedURL = new URL(req.url);
-            return decodeURI(parsedURL.pathname);
+            return decodeURIComponent(parsedURL.pathname);
           })
           .filter((path) => {
             const prefix = this.prefixPath(`/${collection}/audio/${folder}`);
@@ -205,12 +212,15 @@ export class CacheStorageCache implements Cache {
       });
   }
 
-  cacheAhead(urls: PrefetchRequest[], currentlyPlaying?: PrefetchPlaybackPosition) {
-    // console.debug(
-    //   `Want to prefetch ${urls.length} files : ${urls
-    //     .map((i) => JSON.stringify(i))
-    //     .join(", ")}`
-    // );
+  cacheAhead(
+    urls: PrefetchRequest[],
+    currentlyPlaying?: PrefetchPlaybackPosition
+  ) {
+    console.debug(
+      `Want to prefetch ${urls.length} files : ${urls
+        .map((i) => JSON.stringify(i))
+        .join(", ")}`
+    );
     if (this.queue.length > MAX_QUEUE_SIZE) {
       console.error("Prefecth queue is at max size, cannot add items");
       return;
@@ -241,13 +251,20 @@ export class CacheStorageCache implements Cache {
 
       if (!lowPriority) {
         //Cancel running loads from other folders
-        const myFolder = splitPath(new URL(url).pathname).folder;
-        
+        const myFolder = splitPath(
+          decodeURIComponent(new URL(url).pathname)
+        ).folder;
+
         this.processing.forEach((inProgress) => {
-          const runningFolder = splitPath(new URL(inProgress.url).pathname).folder;
+          const runningFolder = splitPath(
+            decodeURIComponent(new URL(inProgress.url).pathname)
+          ).folder;
           if (runningFolder !== myFolder) {
-            toAbort.add(runningFolder);
-          } else if (currentlyPlaying.folderPosition && currentlyPlaying.folderPosition > inProgress.folderPosition) {
+            toAbort.add(encodePathParameter(runningFolder));
+          } else if (
+            currentlyPlaying.folderPosition &&
+            currentlyPlaying.folderPosition > inProgress.folderPosition
+          ) {
             toAbort.add(new URL(inProgress.url).pathname);
           }
         });
@@ -259,7 +276,7 @@ export class CacheStorageCache implements Cache {
       this.processQueue();
     }
     toAbort.forEach((f) => {
-      this.cancelRunning(f, true); // TODO: check logic correct for keepRunning
+      this.cancelRunning(f, false); // TODO: check logic is correct for keepRunning
     });
   }
 

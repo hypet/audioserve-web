@@ -21,14 +21,16 @@
     windowSize,
     playItem,
     pendingDownloads,
+    sleepTime,
+    webSocket,
   } from "./state/stores";
   import { onMount, setContext } from "svelte";
-  import { Configuration } from "./client";
+  import { Configuration, ResponseError } from "./client";
   import { deleteCookie } from "./util/auth";
   import CollectionSelector from "./components/CollectionSelector.svelte";
   import Browser from "./components/Browser.svelte";
-  import { baseWsUrl, deviceName } from "./util/browser";
-  import { FolderType, StorageKeys, WSMessageInType, WSMessageOutType } from "./types/enums";
+  import { deviceName } from "./util/browser";
+  import { FolderType, StorageKeys, WSMessageOutType } from "./types/enums";
   import Breadcrumb from "./components/Breadcrumb.svelte";
   import { baseUrl, otherTheme } from "./util/browser";
   import { gainFocus } from "./util/dom";
@@ -40,7 +42,7 @@
   import { ShakeDetector } from "./util/movement";
   import ConfigEditor from "./components/ConfigEditor.svelte";
   import { HistoryWrapper, parseHistoryFragment } from "./util/history";
-  import { API_CACHE_NAME } from "./types/constants";
+  import { API_CACHE_NAME, SMALL_SCREEN_WIDTH_LIMIT } from "./types/constants";
   import Recent from "./components/Recent.svelte";
   import { PlayItem } from "./types/play-item";
   import { formatWSMessage } from "./types/types";
@@ -55,22 +57,6 @@ import Shuffle from "./components/Shuffle.svelte";
   }
   export let initialHash: string | undefined;
 
-  export let webSocket: WebSocket = new WebSocket(baseWsUrl(true) + "/ws")
-    webSocket.addEventListener("open", () => {
-      console.log("/ws WebSocket opened")
-      let regDeviceReq: WSMessage = formatWSMessage(WSMessageOutType.RegisterDevice, { name: deviceName() });
-      webSocket.send(JSON.stringify(regDeviceReq));
-    });
-    webSocket.addEventListener("error", err => {
-      console.error(`/ws Web socket error`, err);
-    });
-    webSocket.addEventListener("close", close => {
-      webSocket = null;
-      console.debug("/ws Web socket close", close);
-    });
-
-  setContext("webSocket", webSocket);
-  
   if (initialHash) {
     const fld = parseHistoryFragment(initialHash);
     if (fld) {
@@ -100,16 +86,24 @@ import Shuffle from "./components/Shuffle.svelte";
 
   let container: HTMLDivElement;
   let browser: Browser;
+  let isInitialized = false;
 
   async function loadCollections() {
-    const cols = await $colApi.collectionsGet();
-    console.debug("Got collections list", cols);
-    $collections = cols;
-    let parsedCollection: number = parseInt(
-      localStorage.getItem(StorageKeys.LAST_COLLECTION) || "0"
-    );
-    if (parsedCollection >= cols.names.length) parsedCollection = 0;
-    $selectedCollection = parsedCollection;
+    const res = Promise.all([
+      $colApi.collectionsGet().then((cols) => {
+        console.debug("Got collections list", cols);
+        $collections = cols;
+        let parsedCollection: number = parseInt(
+          localStorage.getItem(StorageKeys.LAST_COLLECTION) || "0"
+        );
+        if (parsedCollection >= cols.names.length) parsedCollection = 0;
+        $selectedCollection = parsedCollection;
+      }),
+    ]);
+
+    await res;
+    isInitialized = true;
+    console.debug("isInitialized", isInitialized);
   }
 
   function actOnMenu(menuEvt) {
@@ -186,15 +180,51 @@ import Shuffle from "./components/Shuffle.svelte";
   let error: string = null;
 
   onMount(async () => {
+    console.debug("App onMount");
+    webSocket.addEventListener("open", () => {
+      console.log("WebSocket opened");
+      let regDeviceReq: WSMessage = formatWSMessage(
+        WSMessageOutType.RegisterDevice,
+        { name: deviceName() }
+      );
+      webSocket.send(JSON.stringify(regDeviceReq));
+    });
+    webSocket.addEventListener("error", (err) => {
+      console.error(`Web socket error`, err);
+    });
+    webSocket.addEventListener("close", (close) => {
+      console.debug("Web socket close", close);
+    });
+    webSocket.addEventListener("message", (evt) => {
+      console.debug("Message from server: " + evt.data);
+      const data = JSON.parse(evt.data);
+      // const parseGroup = (item) => {
+      //     if (item && item.folder) {
+      //         const [prefix, collection] = /^(\d+)\//.exec(item.folder);
+      //         item.folder = item.folder.substr(prefix.length);
+      //         item.collection = parseInt(collection);
+      //     }
+      // };
+      // parseGroup(data.folder);
+      // parseGroup(data.last);
+      // if (this.pendingQueryAnswer) {
+      //     if (this.pendingQueryTimeout) clearInterval(this.pendingQueryTimeout);
+      //     this.pendingQueryTimeout = null;
+      //     this.pendingQueryAnswer(data);
+      //     this.pendingQueryAnswer = null;
+      //     this.pendingQueryReject = null;
+      // }
+    });
+
     try {
       await loadCollections();
     } catch (e) {
       console.error("Error loading initial lists", e);
-      if (e instanceof Response) {
-        if (e.status === 401) {
+      if (e instanceof ResponseError) {
+        if (e.response.status === 401) {
           $isAuthenticated = false;
           // try to load again after authentication
-          const unsubsribe = isAuthenticated.subscribe(async (ok) => {
+          const _unsubsribe = isAuthenticated.subscribe(async (ok) => {
             if (ok) {
               try {
                 await loadCollections();
@@ -204,7 +234,7 @@ import Shuffle from "./components/Shuffle.svelte";
             }
           });
         } else {
-          error = `Unexpected respose from server: ${e.status} ${e.statusText}`;
+          error = `Unexpected response from server: ${e.response.status} ${e}`;
         }
       } else {
         error = `Cannot contact server: ${e}`;
@@ -220,7 +250,7 @@ import Shuffle from "./components/Shuffle.svelte";
   let smallScreen = false;
 
   windowSize.subscribe((sz) => {
-    if (sz.width <= 770) {
+    if (sz.width <= SMALL_SCREEN_WIDTH_LIMIT) {
       if (!smallScreen) {
         showSearch = false;
         showCollectionSelect = false;
@@ -291,8 +321,7 @@ import Shuffle from "./components/Shuffle.svelte";
 
   // Sleep Timer Section
 
-  let sleepTime = 0;
-  let sleepTimer: number;
+  let sleepTimer: number | null = null;
   let player: Player;
   let shakeDetector: ShakeDetector = null;
   const clearShakeDetector = () => {
@@ -307,28 +336,41 @@ import Shuffle from "./components/Shuffle.svelte";
     const soundSleep = await loadAudioFile("static/will_sleep_soon.mp3", ac);
     const soundExtended = await loadAudioFile("static/extended.mp3", ac);
 
-    sleepTime = $config.sleepTimerPeriod;
     sleepTimer = window.setInterval(() => {
-      sleepTime -= 1;
-      if (sleepTime === 1) {
+      const nextTime = $sleepTime - 1;
+
+      if (nextTime === 1) {
         playBuffer(soundSleep, ac);
         shakeDetector = new ShakeDetector((how) => {
-          sleepTime += $config.sleepTimerExtend;
+          $sleepTime += $config.sleepTimerExtend;
           playBuffer(soundExtended, ac);
           clearShakeDetector();
         });
-      } else if (sleepTime === 0) {
+      } else if (nextTime === 0) {
         player?.pause();
-        window.clearInterval(sleepTimer);
-        clearShakeDetector();
       }
+      $sleepTime = nextTime;
     }, 60000);
   }
+
+  sleepTime.subscribe((time) => {
+    if (time == 0) {
+      stopSleepTimer();
+    }
+    if (time > 1 && shakeDetector != null) {
+      clearShakeDetector();
+    }
+
+    if (sleepTimer === null && time > 0) {
+      startSleepTimer();
+    }
+  });
 
   function stopSleepTimer() {
     window.clearInterval(sleepTimer);
     clearShakeDetector();
-    sleepTime = 0;
+    $sleepTime = 0;
+    sleepTimer = null;
   }
 
   let showComponent: "browser" | "config" | "recent" = "browser";
@@ -430,22 +472,26 @@ import Shuffle from "./components/Shuffle.svelte";
                 </span>
               {/if}
 
-              {#if sleepTime > 0}
+              {#if $sleepTime > 0}
                 <span
                   role="button"
                   aria-label="Stop sleep timer"
-                  on:click={stopSleepTimer}
+                  on:click={() => {
+                    $sleepTime = 0;
+                  }}
                   class="with-text button-like"
                 >
                   <SleepCancelIcon size="1.5rem" />
-                  <span>{sleepTime}</span>
+                  <span>{$sleepTime}</span>
                 </span>
               {:else}
                 <span
                   role="button"
                   class="button-like"
                   aria-label="Start sleep timer"
-                  on:click={startSleepTimer}
+                  on:click={() => {
+                    $sleepTime = $config.sleepTimerPeriod;
+                  }}
                 >
                   <SleepIcon size="1.5rem" />
                 </span>
@@ -474,7 +520,9 @@ import Shuffle from "./components/Shuffle.svelte";
     {:else}
       <Breadcrumb />
       <div class="browser" bind:this={container}>
-        <Browser {container} infoOpen={!smallScreen} bind:this={browser} />
+        {#if isInitialized}
+          <Browser {container} infoOpen={!smallScreen} bind:this={browser} />
+        {/if}
       </div>
     {/if}
     {#if $playItem}

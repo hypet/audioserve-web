@@ -114,6 +114,7 @@ export class AudioCache {
         !(keepDirect && i.isDirect) &&
         (!pathPrefix || new URL(i.url).pathname.startsWith(pathPrefix))
       ) {
+        console.debug(`Aborting ${JSON.stringify(i)}`);
         i.abort.abort();
         // Firefox seems not to generate error when aborting request, so delete it if it was not deleted due to error
         setTimeout(() => {
@@ -272,10 +273,24 @@ export class AudioCache {
   }
 }
 
-export class NetworkFirstCache {
-  private isEnabled = true;
+class CacheBase {
+  protected isEnabled = true;
 
-  constructor(private cacheName: string, private sizeLimit = 1000) {}
+  constructor(protected cacheName: string, protected sizeLimit = 1000) {}
+
+  enable() {
+    this.isEnabled = true;
+  }
+
+  disable() {
+    this.isEnabled = false;
+  }
+}
+
+export class NetworkFirstCache extends CacheBase {
+  constructor(cacheName: string, sizeLimit = 1000) {
+    super(cacheName, sizeLimit);
+  }
 
   async handleRequest(evt: FetchEvent) {
     if (!this.isEnabled) return;
@@ -334,13 +349,5 @@ export class NetworkFirstCache {
             });
         })
     );
-  }
-
-  enable() {
-    this.isEnabled = true;
-  }
-
-  disable() {
-    this.isEnabled = false;
   }
 }

@@ -1,13 +1,11 @@
 <script lang="ts">
   import Shuffle from "svelte-material-icons/Shuffle.svelte";
-  import type { Device } from "../types/types";
   import { createEventDispatcher, getContext } from "svelte";
   import { clickOutside } from "../util/dom";
   import { formatWSMessage, WSMessage } from "../types/types";
   import { ShuffleMode, WSMessageInType, WSMessageOutType } from "../types/enums";
-  import { activeShuffleMode } from "../state/stores";
+  import { webSocket, activeShuffleMode } from "../state/stores";
   const dispatch = createEventDispatcher();
-  const webSocket: WebSocket = getContext("webSocket");
   webSocket.addEventListener("message", evt => {
       const wsMsg: WSMessage = JSON.parse(evt.data);
       const msgType = Object.keys(wsMsg)[0];
@@ -60,10 +58,10 @@
                     type="radio"
                     name="activeDevice"
                     value={mode}
-                    id={"radio-" + mode}
+                    id={"shuffle-" + mode}
                     bind:group={$activeShuffleMode}
                     on:change={updateShuffleMode}
-                /><label for={"radio-" + mode}>{mode}</label>
+                /><label for={"shuffle-" + mode}>{mode}</label>
                 </li>
               {/each}
             </ul>

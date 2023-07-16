@@ -6,13 +6,13 @@
     onMount,
     tick,
   } from "svelte";
-  import {
+  import type {
     Cache,
     CachedItem,
     CacheEvent,
-    EventType,
     PrefetchRequest,
   } from "../cache";
+  import { EventType } from "../cache";
   import TranscodedIcon from "svelte-material-icons/ArrowCollapseVertical.svelte";
   import CachedIcon from "svelte-material-icons/Cached.svelte";
   import AudioIcon from "svelte-material-icons/SineWave.svelte";
@@ -27,10 +27,11 @@
   import VolumeIcon from "svelte-material-icons/VolumeHigh.svelte";
   import ExpandIcon from "svelte-material-icons/ChevronUp.svelte";
   import CollapsIcon from "svelte-material-icons/ChevronDown.svelte";
+  import SleepIcon from "svelte-material-icons/AlarmSnooze.svelte";
 
   import {
     config,
-    currentFolder,
+    apiConfig,
     playItem,
     playList,
     positionWsApi,
@@ -39,18 +40,21 @@
     deviceId,
     activeDeviceId,
     activeShuffleMode,
+    webSocket,
   } from "../state/stores";
-  import { FolderType, NavigateTarget, ShuffleMode, StorageKeys, WSMessageInType, WSMessageOutType } from "../types/enums";
+  import { NavigateTarget, ShuffleMode, StorageKeys, WSMessageInType, WSMessageOutType } from "../types/enums";
   import { PlayItem } from "../types/play-item";
   import { formatTime } from "../util/date";
   import { splitExtInName, splitPath, splitRootPath, splitUrl } from "../util";
   import CacheIndicator from "./CacheIndicator.svelte";
+  import CoverIcon from "./FolderIcon.svelte";
   import { Throttler } from "../util/events";
-  import { getLocationPath } from "../util/browser";
+  import { getLocationPath, saveConfig } from "../util/browser";
   import { calculateAutorewind } from "../util/play";
+  import { SMALL_SCREEN_WIDTH_LIMIT } from "../types/constants";
+  import TimerControl from "./TimerControl.svelte";
   import { formatWSMessage, WSMessage } from "../types/types";
 
-  const webSocket: WebSocket = getContext("webSocket");
   webSocket.addEventListener("message", evt => {
       if (!evt.data.startsWith("{\"CurrentPosEvent")) {
         console.log("msg from srv: ", evt.data);
@@ -115,11 +119,14 @@
   const dispatch = createEventDispatcher();
   const cache: Cache = getContext("cache");
 
-  let expanded = false;
+  let expanded = $config.expandedPlayerTray;
 
   let previousTime: number; // sum of time of previous items
   let totalFolderTime: number;
   $: formattedTotalFolderTime = formatTime(totalFolderTime);
+  $: displayFolderTime = $config.showFolderRemainingTime
+    ? formatTime(totalFolderTime - folderTime)
+    : formattedTotalFolderTime;
 
   let duration: number;
   let expectedDuration: number;
@@ -142,9 +149,7 @@
   function setCurrentTime(val: number, resetOffset = false) {
     if (resetOffset) timeOffset = 0;
     try {
-      if (player) {
-        player.currentTime = val - timeOffset;
-      }
+      player.currentTime = val - timeOffset;
       progressValue = val;
     } catch (e) {
       console.error(
@@ -253,25 +258,24 @@
     localStorage.setItem(StorageKeys.LAST_POSITION, currentTime.toString());
     reportPosition();
     updateBuffered();
-  }, 800);
+  }, 250);
 
   $: if (currentTime != undefined && isFinite(currentTime)) {
     if (!progressValueChanging) {
       progressValue = currentTime;
     }
     updateMediaSessionState();
-    // lastPositionThrottler.throttle(currentTime);
+    lastPositionThrottler.throttle(currentTime);
   }
-
   async function loadTime(time: number, startPlayback = false) {
-    console.log(`Seeking time on url ${$playItem.url} to time ${time}`);
+    console.debug(`Seeking time on url ${$playItem.url} to time ${time}`);
     const newUrl = $playItem.url + `&seek=${time}`;
     let wasPlaying = !paused;
     timeOffset = time;
-    if (player) {
-      player.src = newUrl;
-      player.currentTime = 0;
-    }
+    //player.src = null;
+    player.src = newUrl;
+    //player.load()
+    player.currentTime = 0;
     if (wasPlaying || startPlayback) {
       await playPlayer();
     }
@@ -279,20 +283,18 @@
 
   const safeToSeekInPlayer = (time: number) => {
     let diff = time - currentTime;
-    if (player) {
-      for (let i = 0; i < player.buffered.length; i++) {
-        const start = timeOffset + player.buffered.start(i);
-        const end = timeOffset + player.buffered.end(i);
-        console.debug(`Checking buffer star ${start} end ${end} for time ${time}`);
-        if (start <= time && time <= end) {
-          return true;
-        } else if (time < start && diff < 0) {
-          const newDiff = time - start;
-          if (newDiff > diff) diff = newDiff;
-        } else if (time > end && diff > 0) {
-          const newDiff = time - end;
-          if (newDiff < diff) diff = newDiff;
-        }
+    for (let i = 0; i < player.buffered.length; i++) {
+      const start = timeOffset + player.buffered.start(i);
+      const end = timeOffset + player.buffered.end(i);
+      // console.debug(`Checking buffer star ${start} end ${end} for time ${time}`);
+      if (start <= time && time <= end) {
+        return true;
+      } else if (time < start && diff < 0) {
+        const newDiff = time - start;
+        if (newDiff > diff) diff = newDiff;
+      } else if (time > end && diff > 0) {
+        const newDiff = time - end;
+        if (newDiff < diff) diff = newDiff;
       }
     }
 
@@ -341,7 +343,11 @@
   }
 
   async function startPlay(item: PlayItem): Promise<void> {
-    if (item) {
+    console.debug("startPlay item:", item);
+    console.debug("startPlay player:", player);
+
+    if (item && player) {
+      console.debug("startPlay if player:", player);
       let source;
       if (item.cached) {
         const cachedItem = await cache?.getCachedUrl(item.url);
@@ -359,9 +365,7 @@
         source = item.url;
         cached = false;
       }
-      if (player) {
-        player.src = source;
-      }
+      player.src = source;
       localStorage.setItem(StorageKeys.LAST_FILE, item.path);
       timeOffset = 0;
       if (item.time != null && isFinite(item.time)) {
@@ -395,6 +399,12 @@
   function updateMediaSessionMetadata(item: PlayItem) {
     document.title = `${fileDisplayName} (${item.path})`;
     if ("mediaSession" in navigator) {
+      let icon = "favicon.png";
+      if ($playList.hasImage) {
+        icon = `${
+          $apiConfig.basePath
+        }/${$selectedCollection}/icon/${encodeURIComponent($playList.folder)}`;
+      }
       const { root: artist, path: album } = splitRootPath(
         splitPath(item.path).folder
       );
@@ -403,7 +413,7 @@
         title: fileDisplayName,
         album,
         artist,
-        artwork: [{ src: "favicon.png" }],
+        artwork: [{ src: icon }],
       });
 
       navigator.mediaSession.setActionHandler(
@@ -424,8 +434,7 @@
     if (
       isFinite(currentTime) &&
       isFinite(duration) &&
-      currentTime <= duration &&
-      player
+      currentTime <= duration
     ) {
       navigator.mediaSession?.setPositionState({
         duration,
@@ -614,7 +623,7 @@
         `Playback ended at ${currentTime} before expected duration ${expectedDuration}, maybe problem with cached version`
       );
     } else {
-      console.log(`File ${$playItem.name} on ${$playItem.path} finished`);
+      console.debug(`File ${$playItem.name} on ${$playItem.path} finished`);
     }
     if (wantPlay) {
       const nextPosition = $playItem.position + 1;
@@ -675,13 +684,11 @@
 
   function updateBuffered() {
     const arr = [];
-    if (player) {
-      for (let i = 0; i < player.buffered.length; i++) {
-        arr.push({
-          start: timeOffset + player.buffered.start(i),
-          end: timeOffset + player.buffered.end(i),
-        });
-      }
+    for (let i = 0; i < player.buffered.length; i++) {
+      arr.push({
+        start: timeOffset + player.buffered.start(i),
+        end: timeOffset + player.buffered.end(i),
+      });
     }
     const is_different = () => {
       if (buffered.length != arr.length) {
@@ -795,7 +802,11 @@
     aria-label="More Controls"
     aria-expanded={expanded}
     class="player-expand-button button-like"
-    on:click={() => (expanded = !expanded)}
+    on:click={() => {
+      expanded = !expanded;
+      $config.expandedPlayerTray = expanded;
+      saveConfig($config);
+    }}
   >
     {#if expanded}<CollapsIcon size="48px" />{:else}<ExpandIcon
         size="48px"
@@ -805,6 +816,11 @@
 
 {#if expanded}
   <div class="extra-controls">
+    <div class="timer-control slider-control extra-control">
+      <span><SleepIcon size={fileIconSize} /></span>
+      <TimerControl iconSize={fileIconSize} />
+    </div>
+
     <div class="volume-control slider-control extra-control">
       <span><VolumeIcon size={fileIconSize} /></span>
       <input
@@ -839,179 +855,213 @@
     </div>
   </div>
 {/if}
-
-<div class="info">
-  <div class="item-info" id="folder-info">
-    <label for="folder-name" class="icon clickable" on:click={navigateToFolder}
-      ><FolderIcon size={fileIconSize} /></label
-    >
-    <span
-      role="link"
-      aria-label="Navigate to currently playing folder"
-      id="folder-name"
-      class="item-name link-like"
-      dir="rtl"
-      on:click={navigateToFolder}>{folder}</span
-    >
-  </div>
-  <div id="total-progress">
-    <div class="play-time" aria-label="Current time in whole folder">
-      {formattedFolderTime}
+<div class="player-wrapper">
+  {#if $windowSize.width > SMALL_SCREEN_WIDTH_LIMIT && $playList.hasImage}
+    <div class="icon" aria-hidden="true" on:click={navigateToFolder}>
+      <CoverIcon name="" path={$playList.folder} size="128px" />
     </div>
-    <div class="progress total">
-      <progress
-        aria-label="Total folder playback progress"
-        aria-valuetext={`${formattedFolderTime} of ${formattedTotalFolderTime}`}
-        value={folderTime}
-        max={totalFolderTime}
-      />
-    </div>
-    <div class="total-time" aria-label="Total playback time of whole folder">
-      {formattedTotalFolderTime}
-    </div>
-  </div>
-  <div class="item-info" id="file-info">
-    <label
-      for="file-name"
-      class="clickable"
-      on:click={locateFile}
-      title={cached
-        ? "Playing cached file"
-        : transcoded
-        ? "Playing transcoded file"
-        : "Playing streamed file"}
-    >
-      {#if cached}
-        <CachedIcon size={fileIconSize} />
-      {:else if transcoded}
-        <TranscodedIcon size={fileIconSize} />
-      {:else}
-        <AudioIcon size={fileIconSize} />
-      {/if}
-    </label>
-    <span
-      class="label clickable"
-      on:click={locateFile}
-      aria-label="Position of currently playing file in folder"
-    >
-      (<span>{folderSize ? folderPosition + 1 : 0}</span>/<span
-        >{folderSize}</span
-      >)
-    </span>
-    <span
-      role="link"
-      aria-label="Locate currently playing file"
-      id="file-name"
-      class="item-name link-like"
-      on:click={locateFile}
-    >
-      {fileDisplayName}
-    </span>
-  </div>
-</div>
-<div class="player">
-  {#if $deviceId === $activeDeviceId}
-  <audio
-    preload="none"
-    crossorigin="use-credentials"
-    bind:duration
-    bind:currentTime={playbackTime}
-    bind:paused
-    bind:volume={volume}
-    bind:playbackRate
-    bind:this={player}
-    on:error={playerError}
-    on:ended={tryNextFile}
-  />
   {/if}
-  <div class="play-time" aria-label="Current time in file">
-    {formattedCurrentTime}
-  </div>
-  <div class="progress">
-    <div class="progress-bar">
-      <input
-        class="allow-global-keys"
-        type="range"
-        id="playback-progress"
-        min="0"
-        max={expectedDuration}
-        bind:value={progressValue}
-        on:mousedown={handleProgressMouseDown}
-        on:touchstart={handleProgressMouseDown}
-        aria-label="File Playback Time"
-        aria-valuetext={`${formattedCurrentTime} of ${formattedDuration}`}
-        on:keydown={(evt) => evt.preventDefault()}
-      />
-      <CacheIndicator ranges={buffered} totalTime={expectedDuration} />
+  <div class="player-inner">
+    <div class="info">
+      <div class="item-info" id="folder-info">
+        <label for="folder-name" class="clickable" on:click={navigateToFolder}
+          ><FolderIcon size={fileIconSize} /></label
+        >
+        <span
+          role="link"
+          aria-label="Navigate to currently playing folder"
+          id="folder-name"
+          class="item-name link-like"
+          dir="rtl"
+          on:click={navigateToFolder}>{folder}</span
+        >
+      </div>
+      <div id="total-progress">
+        <div class="play-time" aria-label="Current time in whole folder">
+          {formattedFolderTime}
+        </div>
+        <div class="progress total">
+          <progress
+            aria-label="Total folder playback progress"
+            aria-valuetext={`${formattedFolderTime} of ${formattedTotalFolderTime}`}
+            value={folderTime}
+            max={totalFolderTime}
+          />
+        </div>
+        <div
+          class="total-time clickable"
+          on:click={() => {
+            $config.showFolderRemainingTime = !$config.showFolderRemainingTime;
+            saveConfig($config);
+          }}
+          aria-label={$config.showFolderRemainingTime
+            ? "Remaining time in the folder"
+            : "Total playback time of whole folder"}
+        >
+          {displayFolderTime}
+        </div>
+      </div>
+      <div class="item-info" id="file-info">
+        <label
+          for="file-name"
+          class="clickable"
+          on:click={locateFile}
+          title={cached
+            ? "Playing cached file"
+            : transcoded
+            ? "Playing transcoded file"
+            : "Playing streamed file"}
+        >
+          {#if cached}
+            <CachedIcon size={fileIconSize} />
+          {:else if transcoded}
+            <TranscodedIcon size={fileIconSize} />
+          {:else}
+            <AudioIcon size={fileIconSize} />
+          {/if}
+        </label>
+        <span
+          class="label clickable"
+          on:click={locateFile}
+          aria-label="Position of currently playing file in folder"
+        >
+          (<span>{folderSize ? folderPosition + 1 : 0}</span>/<span
+            >{folderSize}</span
+          >)
+        </span>
+        <span
+          role="link"
+          aria-label="Locate currently playing file"
+          id="file-name"
+          class="item-name link-like"
+          on:click={locateFile}
+        >
+          {fileDisplayName}
+        </span>
+      </div>
     </div>
-  </div>
-  <div class="total-time" aria-label="Total time of current file">
-    {formattedDuration}
-  </div>
-</div>
-<div class="controls-bar">
-  <div class="player-controls">
-    <span
-      tabindex="0"
-      role="button"
-      aria-label="Previous"
-      class="control-button button-like"
-      on:click={playPrevious}
-    >
-      <PreviousIcon size={controlSize} />
-    </span>
-    <span
-      tabindex="0"
-      role="button"
-      aria-label="Jump back"
-      class="control-button button-like"
-      title="You can also use Left Arrow key"
-      on:click={jumpTimeRelative(-$config.jumpBackTime)}
-    >
-      <RewindIcon size={controlSize} />
-    </span>
-    <span
-      tabindex="0"
-      role="button"
-      aria-label={paused ? "Play" : "Pause"}
-      title="You can also use Space key"
-      class="control-button button-like"
-      class:blink={preparingPlayback}
-      on:click={playPause}
-    >
-      {#if paused}
-        <PlayIcon size={controlSize} />
-      {:else}
-        <PauseIcon size={controlSize} />
+    <div class="player">
+      {#if $deviceId === $activeDeviceId}
+      <audio
+        preload="none"
+        crossorigin="use-credentials"
+        bind:duration
+        bind:currentTime={playbackTime}
+        bind:paused
+        bind:volume
+        bind:playbackRate
+        bind:this={player}
+        on:error={playerError}
+        on:ended={tryNextFile}
+      />
       {/if}
-    </span>
-    <span
-      tabindex="0"
-      role="button"
-      aria-label="Jump ahead"
-      class="control-button button-like"
-      title="You can also use Right Arrow key"
-      on:click={jumpTimeRelative($config.jumpForwardTime)}
-    >
-      <ForwardIcon size={controlSize} />
-    </span>
-    <span
-      tabindex="0"
-      role="button"
-      aria-label="Next"
-      class="control-button button-like"
-      on:click={playNext}
-    >
-      <NextIcon size={controlSize} />
-    </span>
+      <div class="play-time" aria-label="Current time in file">
+        {formattedCurrentTime}
+      </div>
+      <div class="progress">
+        <div class="progress-bar">
+          <input
+            class="allow-global-keys"
+            type="range"
+            id="playback-progress"
+            min="0"
+            max={expectedDuration}
+            bind:value={progressValue}
+            on:mousedown={handleProgressMouseDown}
+            on:touchstart={handleProgressMouseDown}
+            aria-label="File Playback Time"
+            aria-valuetext={`${formattedCurrentTime} of ${formattedDuration}`}
+            on:keydown={(evt) => evt.preventDefault()}
+          />
+          <CacheIndicator ranges={buffered} totalTime={expectedDuration} />
+        </div>
+      </div>
+      <div class="total-time" aria-label="Total time of current file">
+        {formattedDuration}
+      </div>
+    </div>
+    <div class="controls-bar">
+      <div class="player-controls">
+        <span
+          tabindex="0"
+          role="button"
+          aria-label="Previous"
+          class="control-button button-like"
+          on:click={playPrevious}
+        >
+          <PreviousIcon size={controlSize} />
+        </span>
+        <span
+          tabindex="0"
+          role="button"
+          aria-label="Jump back"
+          class="control-button button-like"
+          title="You can also use Left Arrow key"
+          on:click={jumpTimeRelative(-$config.jumpBackTime)}
+        >
+          <RewindIcon size={controlSize} />
+        </span>
+        <span
+          tabindex="0"
+          role="button"
+          aria-label={paused ? "Play" : "Pause"}
+          title="You can also use Space key"
+          class="control-button button-like"
+          class:blink={preparingPlayback}
+          on:click={playPause}
+        >
+          {#if paused}
+            <PlayIcon size={controlSize} />
+          {:else}
+            <PauseIcon size={controlSize} />
+          {/if}
+        </span>
+        <span
+          tabindex="0"
+          role="button"
+          aria-label="Jump ahead"
+          class="control-button button-like"
+          title="You can also use Right Arrow key"
+          on:click={jumpTimeRelative($config.jumpForwardTime)}
+        >
+          <ForwardIcon size={controlSize} />
+        </span>
+        <span
+          tabindex="0"
+          role="button"
+          aria-label="Next"
+          class="control-button button-like"
+          on:click={playNext}
+        >
+          <NextIcon size={controlSize} />
+        </span>
 
-    <!-- <span class="control-button" on:click={null}>
+        <!-- <span class="control-button" on:click={null}>
     <span><SpeedIcon size="{controlSize}" /></span>
   </span> -->
+      </div>
+    </div>
   </div>
 </div>
 
 <style>
+  .icon {
+    padding-right: 1em;
+    padding-top: 1em;
+    cursor: pointer;
+  }
+
+  .player-inner {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 250px;
+  }
+
+  .player-wrapper {
+    display: flex;
+    flex-direction: row;
+  }
+
   .extra-controls {
     margin-top: 1rem;
   }
@@ -1020,6 +1070,7 @@
     display: flex;
     flex-direction: row;
     gap: 1em;
+    height: 2em;
   }
   .slider-control {
     flex-grow: 1;
@@ -1064,6 +1115,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    margin-left: 0.2em;
   }
 
   .label {
@@ -1133,7 +1185,7 @@
     font-weight: bold;
   }
   .info {
-    margin-top: 0.5em;
+    margin-top: 0em;
   }
 
   .blink {

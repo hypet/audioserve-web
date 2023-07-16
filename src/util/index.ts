@@ -1,5 +1,6 @@
 import type { AudioFile } from "../client";
 import { StorageKeys } from "../types/enums";
+import type { AppConfig } from "../types/types";
 
 export function capitalize(s: string) {
   if (s.length == 0) return "";
@@ -13,12 +14,16 @@ export function removeQuery(url: string): string {
 }
 
 export function audioFilePath(collection: number, folder: string) {
-  return `/${collection}/audio/${encodeURI(folder)}`;
+  return `/${collection}/audio/${encodeURIComponent(folder)}`;
+}
+
+export function mediaFilePath(collection: number, track_id: number) {
+  return `/${collection}/media/${track_id}`;
 }
 
 export function splitUrl(url: string, prefix?: string) {
   const parsedUrl = new URL(url);
-  let path = decodeURI(parsedUrl.pathname);
+  let path = decodeURIComponent(parsedUrl.pathname);
   if (prefix) {
     path = path.substring(prefix.length);
   }
@@ -109,4 +114,13 @@ export function nonEmpty(o: object | Array<any>): boolean {
 
 export function sorted<T>(a: Array<T>): Array<T> {
   return [...a].sort();
+}
+
+export function encodePathParameter(path: string): string {
+  const match = /^\/\d+\/\w+\//.exec(path);
+  if (match.length === 1) {
+    return match[0] + encodeURIComponent(path.substring(match[0].length));
+  } else {
+    return path;
+  }
 }

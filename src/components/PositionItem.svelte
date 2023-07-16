@@ -1,7 +1,7 @@
 <script lang="ts">
   import { beforeUpdate } from "svelte";
   import type { Position } from "../client";
-  import { formatTime, formatTimeAgo } from "../util/date";
+  import { formatTime } from "../util/date";
   import { fileToHumanName } from "../util";
 
   export let position: Position;
@@ -20,7 +20,6 @@
     {position.folder}
   </h6>
   <div class="position-time">
-    {formatTimeAgo(position.timestamp)}
     (pos. {formatTime(position.position)})
   </div>
 </div>

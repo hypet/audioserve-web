@@ -4,8 +4,8 @@
   import { get } from "svelte/store";
 
   import { config } from "../state/stores";
-  import { StorageKeys } from "../types/enums";
   import type { AppConfig } from "../types/types";
+  import { saveConfig } from "../util/browser";
   import ClosableTitle from "./ClosableTitle.svelte";
 
   let currentConfig: AppConfig = get(config);
@@ -15,10 +15,7 @@
 
   const applyConfig = () => {
     dispatch("finished");
-    localStorage.setItem(
-      StorageKeys.PREFERENCES,
-      JSON.stringify(currentConfig)
-    );
+    saveConfig(currentConfig);
     config.set(currentConfig);
   };
   const cancel = () => {
@@ -92,6 +89,18 @@
       slightly to better catch up with previous text
     </p>
 
+    <label for="folder-icon-size"> Size of folder icons (in pixels) </label>
+    <input
+      id="folder-icon-size"
+      aria-describedby="folder-icon-size-desc"
+      type="number"
+      bind:value={currentConfig.folderIconSize}
+    />
+    <p id="folder-icon-size-desc">
+      Size in pixels of folder icons in browser, if set to 0 icons are not
+      displayed.
+    </p>
+
     <label for="sleep-time">Sleep Timer (minutes)</label>
     <input
       id="sleep-time"
@@ -116,7 +125,7 @@
       it by n minutes by shaking device
     </p>
 
-    <label for="recent-days">Maximum history for recently listened (days)</label
+    <label for="recent-days">Maximum History for Recently Listened (days)</label
     >
     <input
       id="recent-days"
@@ -168,7 +177,7 @@
       data to load
     </p>
 
-    <label for="always-transcode">Mime types to always transcode</label>
+    <label for="always-transcode">Mime Types to Always Transcode</label>
     <input
       id="always-transcode"
       aria-describedby="always-transcode-desc"
@@ -179,6 +188,20 @@
       List audio Mime types (space separated), that you want always to transcode
       - e.g. they are not supported by browser on this platform. Typical example
       would be audio/ogg on iPhone/iPad
+    </p>
+
+    <label for="browser-slide">
+      <input
+        id="browser-slide"
+        aria-describedby="browser-slide-desc"
+        type="checkbox"
+        bind:checked={currentConfig.enableSlideInBrowser}
+      />
+      Use Slide Gesture in Browser
+    </label>
+    <p class="no-input" id="browser-slide-desc">
+      In file browser use slide gesture to play a file instead of click. Useful
+      on touch devices to prevent accidental touches and thus jumps in playback.
     </p>
 
     <div class="grid">

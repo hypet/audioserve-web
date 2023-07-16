@@ -14,4 +14,8 @@ export const defaultConfig: AppConfig = {
   autorewind: false,
   recentDays: 365,
   alwaysTranscode: "",
+  folderIconSize: 64,
+  showFolderRemainingTime: false,
+  expandedPlayerTray: false,
+  enableSlideInBrowser: false,
 };

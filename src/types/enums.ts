@@ -16,6 +16,7 @@ export enum FolderType {
   REGULAR,
   SEARCH,
   RECENT,
+  // ALL,
 }
 
 export enum NavigateTarget {

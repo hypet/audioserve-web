@@ -17,6 +17,7 @@ export interface CurrentPlayList {
   collection: number;
   folder: string;
   totalTime: number;
+  hasImage: boolean;
 }
 
 export interface AppConfig {
@@ -33,6 +34,10 @@ export interface AppConfig {
   autorewind: boolean;
   recentDays: number;
   alwaysTranscode: string;
+  folderIconSize: number;
+  showFolderRemainingTime: boolean;
+  expandedPlayerTray: boolean;
+  enableSlideInBrowser: boolean;
 }
 
 export interface TranscodingDetail {

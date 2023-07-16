@@ -1,21 +1,14 @@
-import { writable, derived, Writable, Readable, readable } from "svelte/store";
+import { writable, derived, readable } from "svelte/store";
+import type { Writable, Readable } from "svelte/store";
 import { defaultConfig } from "../app-config";
-import type { CachedItem } from "../cache";
-import {
-  CollectionsApi,
-  CollectionsInfo,
-  Configuration,
-  PositionsApi,
-  Transcoding,
-  TranscodingsInfo,
-} from "../client";
+import { CollectionsApi, Configuration, PositionsApi } from "../client";
+import type { CollectionsInfo, Transcoding, TranscodingsInfo } from "../client";
 import { PlaybackSync } from "../client-position/playback-sync";
 import {
   ShuffleMode,
   StorageKeys,
   TranscodingCode,
   transcodingCodeToName,
-  transcodingNameToCode,
 } from "../types/enums";
 import type { PlayItem } from "../types/play-item";
 import type {
@@ -25,6 +18,7 @@ import type {
   TranscodingDetail,
 } from "../types/types";
 import { isDevelopment } from "../util/version";
+import { baseWsUrl } from "../util/browser";
 
 export const isAuthenticated = writable(true);
 export const apiConfig = writable(new Configuration());
@@ -67,7 +61,6 @@ export const pendingDownloads: Writable<number> = writable(0);
 export const deviceId: Writable<String> = writable(undefined);
 export const activeDeviceId: Writable<String> = writable(undefined);
 export const activeShuffleMode: Writable<ShuffleMode> = writable(ShuffleMode.Off);
-// export const isLocalMode: Writable<Boolean> = writable(true);
 
 export const colApi = derived(
   apiConfig,
@@ -120,3 +113,7 @@ function getWindowSize() {
 export const windowSize = readable(getWindowSize(), (set) => {
   window.addEventListener("resize", () => set(getWindowSize()));
 });
+
+export const sleepTime = writable(0);
+
+export let webSocket: WebSocket = new WebSocket(baseWsUrl(true, 3000) + "/ws");

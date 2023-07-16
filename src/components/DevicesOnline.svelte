@@ -5,9 +5,8 @@
   import { clickOutside } from "../util/dom";
   import { formatWSMessage, WSMessage } from "../types/types";
   import { WSMessageInType, WSMessageOutType } from "../types/enums";
-  import { deviceId, activeDeviceId } from "../state/stores";
+  import { webSocket, deviceId, activeDeviceId } from "../state/stores";
   const dispatch = createEventDispatcher();
-  const webSocket: WebSocket = getContext("webSocket");
   webSocket.addEventListener("message", evt => {
       const wsMsg: WSMessage = JSON.parse(evt.data);
       const msgType = Object.keys(wsMsg)[0];
@@ -41,10 +40,7 @@
     console.log("Selected device: " + $activeDeviceId);
   }
   
-  // let selectedDevice: Device = null;
-
   function updateDeviceList() {
-    // selectedDevice = 
     let makeDeviceActive: WSMessage = formatWSMessage(WSMessageOutType.MakeDeviceActive, { device_id: $activeDeviceId });
     webSocket.send(JSON.stringify(makeDeviceActive));
     console.log("Sending make device active: ", makeDeviceActive);

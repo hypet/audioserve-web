@@ -39,7 +39,7 @@ export class PlaybackSync {
 
     constructor(config: PlaybackSyncConfig) {
 
-        this.socketUrl = baseWsUrl(config.development) + "/position";
+        this.socketUrl = baseWsUrl(config.development, config.developmentPort) + "/position";
         this.closed = false;
         this.filePath = null;
         this._groupPrefix = null;
@@ -81,7 +81,7 @@ export class PlaybackSync {
         });
         webSocket.addEventListener("close", close => {
             this.socket = null;
-            console.debug("Web socket closed", close);
+            console.debug("Web socket close", close);
             // Do not reopen - it'll reopen only on demand
             // if (! this.closed && this.failures < 20) window.setTimeout(() => this.open(), 100 * Math.min(5, this.failures));
 

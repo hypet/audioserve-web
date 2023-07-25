@@ -79,7 +79,7 @@ export interface AudioFolder {
      * @type {Array<AudioFile>}
      * @memberof AudioFolder
      */
-    files?: Array<AudioFile>;
+    files?: Map<number, AudioFile>;
     /**
      * 
      * @type {TypedFile}
@@ -130,33 +130,10 @@ export function AudioFolderFromJSONTyped(json: any, ignoreDiscriminator: boolean
         'modified': !exists(json, 'modified') ? undefined : json['modified'],
         'totalTime': !exists(json, 'total_time') ? undefined : json['total_time'],
         'subfolders': !exists(json, 'subfolders') ? undefined : ((json['subfolders'] as Array<any>).map(SubfolderFromJSON)),
-        'files': !exists(json, 'files') ? undefined : ((json['files'] as Array<any>).map(AudioFileFromJSON)),
+        'files': !exists(json, 'files') ? undefined : new Map((json['files'] as Array<any>).map(AudioFileFromJSON)),
         'cover': !exists(json, 'cover') ? undefined : TypedFileFromJSON(json['cover']),
         'description': !exists(json, 'description') ? undefined : TypedFileFromJSON(json['description']),
         'tags': !exists(json, 'tags') ? undefined : json['tags'],
         'position': !exists(json, 'position') ? undefined : PositionShortFromJSON(json['position']),
     };
 }
-
-export function AudioFolderToJSON(value?: AudioFolder | null): any {
-    if (value === undefined) {
-        return undefined;
-    }
-    if (value === null) {
-        return null;
-    }
-    return {
-        
-        'is_file': value.isFile,
-        'is_collapsed': value.isCollapsed,
-        'modified': value.modified,
-        'total_time': value.totalTime,
-        'subfolders': value.subfolders === undefined ? undefined : ((value.subfolders as Array<any>).map(SubfolderToJSON)),
-        'files': value.files === undefined ? undefined : ((value.files as Array<any>).map(AudioFileToJSON)),
-        'cover': TypedFileToJSON(value.cover),
-        'description': TypedFileToJSON(value.description),
-        'tags': value.tags,
-        'position': PositionShortToJSON(value.position),
-    };
-}
-

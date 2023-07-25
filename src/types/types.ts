@@ -13,7 +13,8 @@ export interface CurrentFolder {
 }
 
 export interface CurrentPlayList {
-  files: AudioFileExt[];
+  // files: AudioFileExt[];
+  files: Map<number, AudioFileExt>;
   collection: number;
   folder: string;
   totalTime: number;
@@ -46,7 +47,7 @@ export interface TranscodingDetail {
   name?: string;
 }
 
-export interface Device {
+export interface ClientDevice {
   name: string,
   id: string,
   active: boolean

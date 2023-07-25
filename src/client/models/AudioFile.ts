@@ -81,22 +81,22 @@ export function instanceOfAudioFile(value: object): boolean {
     return isInstance;
 }
 
-export function AudioFileFromJSON(json: any): AudioFile {
+export function AudioFileFromJSON(json: any): [number, AudioFile] {
     return AudioFileFromJSONTyped(json, false);
 }
 
-export function AudioFileFromJSONTyped(json: any, ignoreDiscriminator: boolean): AudioFile {
+export function AudioFileFromJSONTyped(json: any, ignoreDiscriminator: boolean): [number, AudioFile] {
     if ((json === undefined) || (json === null)) {
         return json;
     }
-    return {
+    return [json['id'], {
         'id': json['id'],
         'name': json['name'],
         'path': json['path'],
         'meta': !exists(json, 'meta') ? undefined : AudioFileMetaFromJSON(json['meta']),
         'mime': json['mime'],
         'section': !exists(json, 'section') ? undefined : AudioFileSectionFromJSON(json['section']),
-    };
+    }];
 }
 
 export function AudioFileToJSON(value?: AudioFile | null): any {

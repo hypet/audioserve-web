@@ -40,6 +40,7 @@
     deviceId,
     activeDeviceId,
     activeShuffleMode,
+    isPlaying,
     webSocket,
   } from "../state/stores";
   import { NavigateTarget, ShuffleMode, StorageKeys, WSMessageInType, WSMessageOutType } from "../types/enums";
@@ -54,42 +55,6 @@
   import { SMALL_SCREEN_WIDTH_LIMIT } from "../types/constants";
   import TimerControl from "./TimerControl.svelte";
   import { formatWSMessage, WSMessage } from "../types/types";
-
-  webSocket.addEventListener("message", evt => {
-      if (!evt.data.startsWith("{\"CurrentPosEvent")) {
-        console.log("msg from srv: ", evt.data);
-      }
-      const wsMsg: WSMessage = JSON.parse(evt.data);
-      const msgType = Object.keys(wsMsg)[0];
-      const event = wsMsg[msgType];
-      const typedMsgType: WSMessageInType = WSMessageInType[msgType as keyof typeof WSMessageInType];
-      switch (typedMsgType) {
-        case WSMessageInType.RewindToEvent:
-          jumpTime(event["time"]);
-          break;
-        case WSMessageInType.CurrentPosEvent:
-          if (paused) {
-            paused = false;
-          }
-          progressValue = event["time"];
-          break;
-        case WSMessageInType.PauseEvent: 
-          paused = true;
-          break;
-        case WSMessageInType.ResumeEvent:
-          paused = false;
-          break;
-        case WSMessageInType.PlayTrackEvent:
-          let done = startPlay($playItem);
-          done.then(() => {
-            console.log("Started play of:", $playItem);
-          })
-          break;
-        case WSMessageInType.VolumeChangeEvent:
-          volumeControl = event["value"];
-          break;
-      }
-    });
 
   const fileIconSize = "1.5rem";
   const controlSize = "48px";
@@ -163,13 +128,12 @@
     (isFinite(currentTime) ? currentTime : 0);
   $: formattedFolderTime = formatTime(folderTime);
 
-  let paused: boolean;
   $: {
-    const state = paused == null ? "none" : paused ? "paused" : "playing";
+    const state = $isPlaying == null ? "none" : $isPlaying ? "paused" : "playing";
     if (navigator.mediaSession) navigator.mediaSession.playbackState = state;
   }
   export const pause = () => {
-    paused = true;
+    $isPlaying = true;
   };
   let preparingPlayback = false;
   let wantPlay = false;
@@ -270,7 +234,7 @@
   async function loadTime(time: number, startPlayback = false) {
     console.debug(`Seeking time on url ${$playItem.url} to time ${time}`);
     const newUrl = $playItem.url + `&seek=${time}`;
-    let wasPlaying = !paused;
+    let wasPlaying = !$isPlaying;
     timeOffset = time;
     //player.src = null;
     player.src = newUrl;
@@ -302,7 +266,7 @@
   };
 
   function jumpTime(time: number) {
-    if (transcoded && !cached && !paused) {
+    if (transcoded && !cached && !$isPlaying) {
       // can move only to already buffered or slightly beyond
       // otherwise use seek on server
       if (safeToSeekInPlayer(time)) {
@@ -320,23 +284,23 @@
       let toTime = progressValue + amt;
       if (toTime < 0) {
         toTime = 0;
-      } else if (paused && toTime > expectedDuration) {
+      } else if ($isPlaying && toTime > expectedDuration) {
         toTime = expectedDuration;
       }
       jumpTime(toTime);
     };
   }
 
-  $: folderSize = $playList?.files.length || 0;
+  $: folderSize = $playList?.files.size || 0;
 
   function reportPosition(force?: boolean) {
-    if ((paused && !force) || isNaN(currentTime)) return;
+    if (($isPlaying && !force) || isNaN(currentTime)) return;
     const fullPath = `/${collection}/${filePath}`;
     $positionWsApi.enqueuePosition(fullPath, currentTime);
 
     if ($deviceId === $activeDeviceId) {
       let currentPos: WSMessage = formatWSMessage(WSMessageOutType.CurrentPos, 
-        { collection: $selectedCollection, path: $playItem.path, track_position: $playItem.position, time: currentTime }
+        { collection: $selectedCollection, track_id: $playItem.id, time: currentTime }
       );
       webSocket.send(JSON.stringify(currentPos));
     }
@@ -375,21 +339,21 @@
       duration = 0;
       fileDisplayName = splitExtInName(item).baseName;
       filePath = item.path;
-      folderPosition = item.position;
+      // folderPosition = item.position;
       transcoded = item.transcoded;
       mime = item.mime;
       folder = $playList.folder;
       collection = $playList.collection;
-      previousTime = $playList.files
-        .slice(0, item.position)
-        .reduce((acc, af) => acc + af.meta.duration, 0);
+      // previousTime = $playList.files
+      //   .slice(0, item.position)
+      //   .reduce((acc, af) => acc + af.meta.duration, 0);
       totalFolderTime = $playList.totalTime;
 
       if (item.startPlay) {
         await safePlayPlayer(true);
         reportPosition();
       } else {
-        paused = true;
+        $isPlaying = true;
         wantPlay = false;
       }
       updateMediaSessionMetadata(item);
@@ -467,36 +431,36 @@
   }
 
   function startCacheAhead(pos: number, currentCached = false) {
-    if (!cache) return;
-    const cacheAheadCount = $config.cacheAheadFiles;
-    const preCaches: PrefetchRequest[] = [];
-    for (let newPos = pos + 1; newPos <= pos + cacheAheadCount; newPos++) {
-      if (newPos < $playList.files.length) {
-        const nextFile = $playList.files[newPos];
-        if (!nextFile.cached) {
-          const item = new PlayItem({
-            file: nextFile,
-            collection,
-            position: newPos,
-          });
-          preCaches.push({
-            url: item.url,
-            folderPosition: item.position,
-            lowPriority: false,
-          });
-        }
-      }
-    }
-    if (!currentCached || preCaches.length) {
-      cache.ensureStarted();
-    }
+    // if (!cache) return;
+    // const cacheAheadCount = $config.cacheAheadFiles;
+    // const preCaches: PrefetchRequest[] = [];
+    // for (let newPos = pos + 1; newPos <= pos + cacheAheadCount; newPos++) {
+    //   if (newPos < $playList.files.size) {
+    //     const nextFile = $playList.files.get(newPos);
+    //     if (!nextFile.cached) {
+    //       const item = new PlayItem({
+    //         file: nextFile,
+    //         collection,
+    //         // position: newPos,
+    //       });
+    //       preCaches.push({
+    //         url: item.url,
+    //         // folderPosition: item.position,
+    //         lowPriority: false,
+    //       });
+    //     }
+    //   }
+    // }
+    // if (!currentCached || preCaches.length) {
+    //   cache.ensureStarted();
+    // }
 
-    if (cache && preCaches.length) {
-      cache.cacheAhead(preCaches, {
-        url: $playItem.url,
-        folderPosition: $playItem.position,
-      });
-    }
+    // if (cache && preCaches.length) {
+    //   cache.cacheAhead(preCaches, {
+    //     url: $playItem.url,
+    //     folderPosition: $playItem.position,
+    //   });
+    // }
   }
 
   function updateCurrentlyPlaying(evt: CacheEvent) {
@@ -506,7 +470,7 @@
         getLocationPath()
       );
       if (cachedCollection === collection && cachedPath === filePath) {
-        switchCurrentToCached(evt.item, paused);
+        switchCurrentToCached(evt.item, $isPlaying);
       }
     }
   }
@@ -574,17 +538,17 @@
 
   async function playPause() {
     reportPosition(true);
-    if (paused) {
+    if ($isPlaying) {
       let resumeMsg: WSMessage = formatWSMessage(WSMessageOutType.Resume, { });
       webSocket.send(JSON.stringify(resumeMsg));
       if (player) {
         await safePlayPlayer();
       }
-      paused = false;
+      $isPlaying = false;
     } else {
       let pauseMsg: WSMessage = formatWSMessage(WSMessageOutType.Pause, { });
       webSocket.send(JSON.stringify(pauseMsg));
-      paused = true;
+      $isPlaying = true;
 
       if (player) {
         wantPlay = false;
@@ -626,8 +590,8 @@
       console.debug(`File ${$playItem.name} on ${$playItem.path} finished`);
     }
     if (wantPlay) {
-      const nextPosition = $playItem.position + 1;
-      playPosition(nextPosition);
+      // const nextPosition = $playItem.position + 1;
+      // playPosition(nextPosition);
       // This is a hack to stabilize transitions on Chromium, where finished is fired twice sometimes
       const wasPlay = wantPlay;
       wantPlay = false;
@@ -636,11 +600,11 @@
   }
 
   function playPosition(nextPosition: number, startPlay = true) {
-    if (nextPosition >= 0 && nextPosition < $playList.files.length) {
+    if (nextPosition >= 0 && nextPosition < $playList.files.size) {
       const nextFile = $playList.files[nextPosition];
       const item = new PlayItem({
         file: nextFile,
-        position: nextPosition,
+        // position: nextPosition,
         startPlay,
         collection: $playList.collection,
         time: 0,
@@ -649,7 +613,7 @@
 
       const folder = splitPath($playItem.path).folder;
       let playTrack: WSMessage = formatWSMessage(WSMessageOutType.PlayTrack, 
-        { collection: $selectedCollection, dir: folder, track_position: $playItem.position }
+        { collection: $selectedCollection, track_id: $playItem.id }
       );
       webSocket.send(JSON.stringify(playTrack));
     }
@@ -665,7 +629,7 @@
 
   function playPrevious() {
     if (ShuffleMode[$activeShuffleMode] === ShuffleMode[ShuffleMode.Off]) {
-      playPosition($playItem.position - 1, !paused);
+      // playPosition($playItem.position - 1, !$isPlaying);
     } else {
       let prevTrack: WSMessage = formatWSMessage(WSMessageOutType.PrevTrack, { collection: $selectedCollection, dir: folder });
       webSocket.send(JSON.stringify(prevTrack));
@@ -675,7 +639,7 @@
   function playNext() {
     console.log("playNext: ", ShuffleMode[$activeShuffleMode], ShuffleMode[ShuffleMode.Off]);
     if (ShuffleMode[$activeShuffleMode] === ShuffleMode[ShuffleMode.Off]) {
-      playPosition($playItem.position + 1, !paused);
+      // playPosition($playItem.position + 1, !$isPlaying);
     } else {
       let nextTrack: WSMessage = formatWSMessage(WSMessageOutType.NextTrack, { collection: $selectedCollection, dir: folder });
       webSocket.send(JSON.stringify(nextTrack));
@@ -735,7 +699,7 @@
     }
 
     if (evt.key === "MediaPlay") {
-      if (paused) playPause();
+      if ($isPlaying) playPause();
       return;
     }
 
@@ -947,7 +911,7 @@
         crossorigin="use-credentials"
         bind:duration
         bind:currentTime={playbackTime}
-        bind:paused
+        bind:paused={$isPlaying}
         bind:volume
         bind:playbackRate
         bind:this={player}
@@ -1004,13 +968,13 @@
         <span
           tabindex="0"
           role="button"
-          aria-label={paused ? "Play" : "Pause"}
+          aria-label={$isPlaying ? "Play" : "Pause"}
           title="You can also use Space key"
           class="control-button button-like"
           class:blink={preparingPlayback}
           on:click={playPause}
         >
-          {#if paused}
+          {#if $isPlaying}
             <PlayIcon size={controlSize} />
           {:else}
             <PauseIcon size={controlSize} />

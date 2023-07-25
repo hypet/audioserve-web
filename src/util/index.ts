@@ -35,7 +35,10 @@ export function splitUrl(url: string, prefix?: string) {
 }
 
 export function splitPath(path: string): { folder?: string; file: string } {
-  const idx = path.lastIndexOf("/");
+  let idx = path.lastIndexOf("/");
+  if (idx < 0) {
+    idx = path.lastIndexOf("\\");
+  }
   if (idx >= 0) {
     return {
       folder: path.substring(0, idx),
@@ -49,7 +52,10 @@ export function splitPath(path: string): { folder?: string; file: string } {
 }
 
 export function splitRootPath(path: string): { root?: string; path: string } {
-  const idx = path.indexOf("/");
+  let idx = path.indexOf("/");
+  if (idx < 0) {
+    idx = path.lastIndexOf("\\");
+  }
   if (idx >= 0) {
     return {
       root: path.substring(0, idx),

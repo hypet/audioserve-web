@@ -22,7 +22,6 @@ import type {
 } from '../models';
 import {
     AudioFolderFromJSON,
-    AudioFolderToJSON,
     CollectionsInfoFromJSON,
     CollectionsInfoToJSON,
     SearchResultFromJSON,

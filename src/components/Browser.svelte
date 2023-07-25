@@ -20,10 +20,11 @@
     playItem,
     playList,
     selectedCollection,
+    webSocket,
   } from "../state/stores";
-  import { FolderType, NavigateTarget, StorageKeys } from "../types/enums";
+  import { FolderType, NavigateTarget, StorageKeys, WSMessageOutType } from "../types/enums";
   import { PlayItem } from "../types/play-item";
-  import type { AudioFileExt } from "../types/types";
+  import { formatWSMessage, type AudioFileExt, type WSMessage } from "../types/types";
   import { formatTime } from "../util/date";
   import {
     nonEmpty,
@@ -70,7 +71,7 @@
   };
 
   let subfolders: Subfolder[] = [];
-  let files: AudioFileExt[] = [];
+  let files: Map<number, AudioFileExt> = new Map<number, AudioFileExt>();
   export const getFiles = () => files;
   let folderPath: string | undefined;
   let isCollapsed = false;
@@ -109,7 +110,7 @@
       });
 
       subfolders = result.subfolders;
-      files = [];
+      // files = [];
 
       searchQuery = query;
 
@@ -134,83 +135,83 @@
     }
   }
 
-  async function loadFolder(folder: string) {
-    try {
-      console.debug("loadFolder");
-      const audioFolder = await $colApi.colIdFolderPathGet({
-        colId: $selectedCollection,
-        path: folder,
-        group: $group || undefined,
-      });
-      const cachedPaths = await cache?.getCachedPaths(
-        $selectedCollection,
-        folder
-      );
-      console.debug("Cached files for this folder", cachedPaths);
+  // async function loadFolder(folder: string) {
+  //   try {
+  //     console.debug("loadFolder");
+  //     const audioFolder = await $colApi.colIdFolderPathGet({
+  //       colId: $selectedCollection,
+  //       path: folder,
+  //       group: $group || undefined,
+  //     });
+  //     const cachedPaths = await cache?.getCachedPaths(
+  //       $selectedCollection,
+  //       folder
+  //     );
+  //     console.debug("Cached files for this folder", cachedPaths);
 
-      files =
-        cachedPaths && cachedPaths.length > 0
-          ? audioFolder.files!.map((file: AudioFileExt) => {
-              if (cachedPaths.indexOf(file.path) >= 0) {
-                file.cached = true;
-              }
-              return file;
-            })
-          : audioFolder.files!;
-      subfolders = sortSubfolders(audioFolder.subfolders!);
-      localStorage.setItem(StorageKeys.LAST_FOLDER, folder);
-      sharedPosition = audioFolder.position;
-      sharePositionDisplayName = null;
-      if (sharedPosition) {
-        files.forEach((f) => {
-          if (f.path === sharedPosition.path) {
-            sharePositionDisplayName = splitExtInName(f).baseName;
-          }
-        });
-      }
+  //     files =
+  //       cachedPaths && cachedPaths.length > 0
+  //         ? audioFolder.files!.map((file: AudioFileExt) => {
+  //             if (cachedPaths.indexOf(file.path) >= 0) {
+  //               file.cached = true;
+  //             }
+  //             return file;
+  //           })
+  //         : audioFolder.files!;
+  //     subfolders = sortSubfolders(audioFolder.subfolders!);
+  //     localStorage.setItem(StorageKeys.LAST_FOLDER, folder);
+  //     sharedPosition = audioFolder.position;
+  //     sharePositionDisplayName = null;
+  //     if (sharedPosition) {
+  //       files.forEach((f) => {
+  //         if (f.path === sharedPosition.path) {
+  //           sharePositionDisplayName = splitExtInName(f).baseName;
+  //         }
+  //       });
+  //     }
 
-      folderTime = audioFolder.totalTime;
-      folderTags = audioFolder.tags;
-      descriptionPath = audioFolder.description?.path;
-      coverPath = audioFolder.cover?.path;
+  //     folderTime = audioFolder.totalTime;
+  //     folderTags = audioFolder.tags;
+  //     descriptionPath = audioFolder.description?.path;
+  //     coverPath = audioFolder.cover?.path;
 
-      // restore last played file, if possible
-      if (!$playItem && folderPath === undefined) {
-        const prevFile = localStorage.getItem(StorageKeys.LAST_FILE);
-        if (prevFile) {
-          console.debug(
-            `Can try to play ${prevFile} in folder ${$currentFolder} in collection ${$selectedCollection}`
-          );
-          const position = files.findIndex((f) => f.path === prevFile);
-          if (position >= 0) {
-            let time: number | undefined;
-            try {
-              time = parseFloat(
-                localStorage.getItem(StorageKeys.LAST_POSITION)
-              );
-            } catch (e) {
-              console.warn("Invalid last position", e);
-            }
-            startPlaying(position, false, time);
-          }
-        }
-      }
+  //     // restore last played file, if possible
+  //     if (!$playItem && folderPath === undefined) {
+  //       const prevFile = localStorage.getItem(StorageKeys.LAST_FILE);
+  //       if (prevFile) {
+  //         console.debug(
+  //           `Can try to play ${prevFile} in folder ${$currentFolder} in collection ${$selectedCollection}`
+  //         );
+  //         const position = files.findIndex((f) => f.path === prevFile);
+  //         if (position >= 0) {
+  //           let time: number | undefined;
+  //           try {
+  //             time = parseFloat(
+  //               localStorage.getItem(StorageKeys.LAST_POSITION)
+  //             );
+  //           } catch (e) {
+  //             console.warn("Invalid last position", e);
+  //           }
+  //           startPlaying(position, false, time);
+  //         }
+  //       }
+  //     }
 
-      folderPath = folder;
-      isCollapsed = !audioFolder.isFile && audioFolder.isCollapsed;
-    } catch (resp) {
-      console.error("Cannot load folder", resp);
-      if (resp.status === 404) {
-        $currentFolder = { value: "", type: FolderType.REGULAR };
-      } else if (resp.status === 401) {
-        $isAuthenticated = false;
-      } else {
-        window.alert(`Failed to load folder ${$currentFolder}`);
-      }
-    } finally {
-      searchQuery = undefined;
-    }
-  }
+  //     folderPath = folder;
+  //     isCollapsed = !audioFolder.isFile && audioFolder.isCollapsed;
+  //   } catch (resp) {
+  //     console.error("Cannot load folder", resp);
+  //     if (resp.status === 404) {
+  //       $currentFolder = { value: "", type: FolderType.REGULAR };
+  //     } else if (resp.status === 401) {
+  //       $isAuthenticated = false;
+  //     } else {
+  //       window.alert(`Failed to load folder ${$currentFolder}`);
+  //     }
+  //   } finally {
+  //     searchQuery = undefined;
+  //   }
+  // }
 
   export async function loadAll() {
     try {
@@ -239,8 +240,16 @@
 
       folderPath = folder;
       isCollapsed = !audioFolder.isFile && audioFolder.isCollapsed;
-      console.debug("loadAll end");
-    } catch (resp) {
+
+      $playList = {
+        files,
+        collection: $selectedCollection,
+        folder: $currentFolder.value,
+        totalTime: folderTime,
+        hasImage: coverPath && coverPath.length > 0,
+      };
+
+  } catch (resp) {
       console.error("Cannot load all", resp);
       if (resp.status === 404) {
         console.error("loadAll not found")
@@ -284,43 +293,41 @@
   }
 
   function playSharedPosition() {
-    const idx = files.findIndex((f) => f.path === sharedPosition.path);
-    if (idx >= 0) {
-      startPlaying(idx, true, sharedPosition.position);
-    }
+    // const idx = files.findIndex((f) => f.path === sharedPosition.path);
+    // if (idx >= 0) {
+    //   startPlaying(idx, true, sharedPosition.position);
+    // }
   }
 
   function startPlaying(position: number, startPlay = true, time?: number) {
-    const file = files[position];
+    const file = files.get(position);
     const item = new PlayItem({
       file,
-      position,
+      // position,
       startPlay,
       time,
     });
     console.debug("Action to start to play: " + item.id);
-    // let playTrackEvent = { { track: }};
-    // webSocket.send(JSON.stringify(playTrackEvent));
-    // webSocket.send("{ trackId: \"" + item.id + "\" }");
-    $playList = {
-      files,
-      collection: $selectedCollection,
-      folder: $currentFolder.value,
-      totalTime: folderTime,
-      hasImage: coverPath && coverPath.length > 0,
-    };
+    let playTrack: WSMessage = formatWSMessage(WSMessageOutType.PlayTrack, 
+        { collection: $selectedCollection, track_id: file.id }
+      );
+    webSocket.send(JSON.stringify(playTrack));
+    // $playList = {
+    //   files,
+    //   collection: $selectedCollection,
+    //   folder: $currentFolder.value,
+    //   totalTime: folderTime,
+    //   hasImage: coverPath && coverPath.length > 0,
+    // };
     $playItem = item;
     console.debug("startPlaying end");
   }
 
   const unsubsribe: Unsubscriber[] = [];
 
-  console.debug("unsubsribe");
   unsubsribe.push(
     selectedCollection.subscribe((col) => {
       if (col != undefined) {
-        console.debug("folderPath", folderPath);
-        loadAll();
         // initiall app load
         if (folderPath === undefined) {
           if (!$currentFolder) {
@@ -336,7 +343,6 @@
           if (folderPath === "") {
             // TODO: fix it by having currentFolder as object
             // have to enforce reload
-            // loadFolder("");
             loadAll();
           }
         }
@@ -357,16 +363,12 @@
   }
 
   $: if ($currentFolder != undefined) {
-    console.debug("if undefined");
     let done: Promise<void>;
     const scrollTo = $currentFolder.scrollTo;
     if ($currentFolder.type === FolderType.REGULAR) {
       done = loadAll();
-      // done = loadFolder($currentFolder.value);
     } else if ($currentFolder.type === FolderType.SEARCH) {
       done = searchFor($currentFolder.value);
-    // } else if ($currentFolder.type === FolderType.REGULAR) {
-      // done = loadAll();
     }
 
     done.then(() => {
@@ -382,6 +384,7 @@
   const globalPathPrefix = getLocationPath();
 
   function handleCacheEvent(evt: CacheEvent) {
+    console.log("handleCacheEvent");
     const item = evt.item;
     if (item) {
       const cached = evt.kind === EventType.FileCached;
@@ -390,25 +393,25 @@
 
       // update folder
       if (collection === $selectedCollection) {
-        const position = files.findIndex((f) => f.path == path);
-        if (position >= 0) {
-          let f = files[position];
-          f.cached = cached;
-          files[position] = f;
-        }
+        // const position = files.findIndex((f) => f.path == path);
+        // if (position >= 0) {
+        //   let f = files[position];
+        //   f.cached = cached;
+        //   files[position] = f;
+        // }
       }
       // update playlist
       if ($playList) {
         const { folder, file } = splitPath(path);
         if ($playList.collection == collection && $playList.folder == folder) {
-          playList.update((pl) => {
-            const position = pl.files.findIndex((f) => f.path == path);
-            console.debug("position:", position);
-            if (position >= 0) {
-              pl.files[position].cached = cached;
-            }
-            return pl;
-          });
+          // playList.update((pl) => {
+            // const position = pl.files.findIndex((f) => f.path == path);
+            // console.debug("position:", position);
+            // if (position >= 0) {
+            //   pl.files[position].cached = cached;
+            // }
+          //   return pl;
+          // });
         }
       }
     }
@@ -474,11 +477,11 @@
         </ul>
       </details>
     {/if}
-    {#if files.length > 0}
+    {#if files.size > 0}
       <details open role="region" aria-label="Files">
         <summary
           >Files
-          <Badge value={files.length} />
+          <Badge value={files.size} />
           <span class="files-duration"
             ><ClockIcon />
             <span>{formatTime(folderTime)}</span></span
@@ -492,10 +495,10 @@
           {/if}
         </summary>
         <ul class="items-list">
-          {#each files as file, pos}
+          {#each [...files] as [key, file]}
             <FileItem
               {file}
-              position={pos}
+              position={key}
               {container}
               playFunction={startPlaying}
             />

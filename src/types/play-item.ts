@@ -10,7 +10,7 @@ import type { AudioFileExt, TranscodingDetail } from "./types";
 
 export interface PlayItemParams {
   file: AudioFileExt;
-  position: number;
+  // position: number;
   collection?: number;
   startPlay?: boolean;
   time?: number;
@@ -22,7 +22,7 @@ export class PlayItem {
   duration: number;
   name: string;
   path: string;
-  position: number;
+  // position: number;
   startPlay: boolean;
   cached: boolean;
   time?: number;
@@ -31,14 +31,15 @@ export class PlayItem {
   mime: string;
 
   constructor(params: PlayItemParams) {
-    this.checkNeedsTranscoding(params.file);
+    // this.checkNeedsTranscoding(params.file);
+    console.log("params: ", params);
     this.id = params.file.id;
     this.url = this.constructURLWithId(params.file.id, params.collection);
     this.duration = params.file.meta?.duration;
     this.name = params.file.name;
     this.path = params.file.path;
     this.cached = params.file.cached;
-    this.position = params.position;
+    // this.position = params.position;
     this.startPlay = params.startPlay;
     this.time = params.time;
     this.mime = params.file.mime;

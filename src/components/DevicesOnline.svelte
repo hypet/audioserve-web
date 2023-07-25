@@ -1,44 +1,17 @@
 <script lang="ts">
   import CellphoneLink from "svelte-material-icons/CellphoneLink.svelte";
-  import type { Device } from "../types/types";
-  import { createEventDispatcher, getContext } from "svelte";
+  import { createEventDispatcher } from "svelte";
   import { clickOutside } from "../util/dom";
   import { formatWSMessage, WSMessage } from "../types/types";
-  import { WSMessageInType, WSMessageOutType } from "../types/enums";
-  import { webSocket, deviceId, activeDeviceId } from "../state/stores";
+  import { WSMessageOutType } from "../types/enums";
+  import { webSocket, deviceId, activeDeviceId, devicesOnline } from "../state/stores";
   const dispatch = createEventDispatcher();
-  webSocket.addEventListener("message", evt => {
-      const wsMsg: WSMessage = JSON.parse(evt.data);
-      const msgType = Object.keys(wsMsg)[0];
-      const event = wsMsg[msgType];
-      const typedMsgType: WSMessageInType = WSMessageInType[msgType as keyof typeof WSMessageInType];
-      switch (typedMsgType) {
-        case WSMessageInType.DevicesOnlineEvent:
-          devicesOnline = event["devices"];
-          break;
-        case WSMessageInType.RegisterDeviceEvent: 
-          $deviceId = event["device_id"];
-          $activeDeviceId = event["device_id"];
-          break;
-        case WSMessageInType.MakeDeviceActiveEvent:
-          $activeDeviceId = event["device_id"];
-          break;
-      }
-    });
 
   let deviceListVisible = false;
   let deviceListButton: HTMLAnchorElement;
-  let devicesOnline: Device[] = [];
 
-  $: {
-    for (let device of devicesOnline) {
-        if (device.active) {
-            $activeDeviceId = device.id;
-            break;
-        }
-    };
-    console.log("Selected device: " + $activeDeviceId);
-  }
+  // $: {
+  // }
   
   function updateDeviceList() {
     let makeDeviceActive: WSMessage = formatWSMessage(WSMessageOutType.MakeDeviceActive, { device_id: $activeDeviceId });
@@ -66,7 +39,7 @@
       <aside class="dropdown-content" style={deviceListVisible ? "" : "display:none"}>
         <nav>
             <ul>
-                {#each devicesOnline as device}
+                {#each $devicesOnline as device}
                 <li class="option">
                   <input
                     type="radio"

@@ -34,10 +34,10 @@ import {
 export interface SearchResult {
     /**
      * Not used now, only subfolders are searched
-     * @type {Array<AudioFile>}
+     * @type {Map<number, AudioFile>}
      * @memberof SearchResult
      */
-    files?: Array<AudioFile>;
+    files?: Map<number, AudioFile>;
     /**
      * 
      * @type {Array<Subfolder>}
@@ -65,7 +65,7 @@ export function SearchResultFromJSONTyped(json: any, ignoreDiscriminator: boolea
     }
     return {
         
-        'files': !exists(json, 'files') ? undefined : ((json['files'] as Array<any>).map(AudioFileFromJSON)),
+        'files': !exists(json, 'files') ? undefined : new Map((json['files'] as Array<any>).map(AudioFileFromJSON)),
         'subfolders': !exists(json, 'subfolders') ? undefined : ((json['subfolders'] as Array<any>).map(SubfolderFromJSON)),
     };
 }
@@ -79,7 +79,7 @@ export function SearchResultToJSON(value?: SearchResult | null): any {
     }
     return {
         
-        'files': value.files === undefined ? undefined : ((value.files as Array<any>).map(AudioFileToJSON)),
+        // 'files': value.files === undefined ? undefined : ((value.files as Array<any>).map(AudioFileToJSON)),
         'subfolders': value.subfolders === undefined ? undefined : ((value.subfolders as Array<any>).map(SubfolderToJSON)),
     };
 }

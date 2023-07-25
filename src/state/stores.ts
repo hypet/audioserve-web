@@ -8,14 +8,17 @@ import {
   ShuffleMode,
   StorageKeys,
   TranscodingCode,
+  WSMessageInType,
   transcodingCodeToName,
 } from "../types/enums";
-import type { PlayItem } from "../types/play-item";
+import { PlayItem } from "../types/play-item";
 import type {
   AppConfig,
   CurrentFolder,
   CurrentPlayList,
+  ClientDevice as Device,
   TranscodingDetail,
+  WSMessage,
 } from "../types/types";
 import { isDevelopment } from "../util/version";
 import { baseWsUrl } from "../util/browser";
@@ -52,15 +55,18 @@ export const selectedTranscodingDetails: Readable<TranscodingDetail> = derived(
     }
   }
 );
-export const currentFolder: Writable<CurrentFolder | undefined> =
-  writable(undefined);
 
+export const currentFolder: Writable<CurrentFolder | undefined> = writable(undefined);
 export const playItem: Writable<PlayItem> = writable(undefined);
 export const playList: Writable<CurrentPlayList> = writable(undefined);
 export const pendingDownloads: Writable<number> = writable(0);
 export const deviceId: Writable<String> = writable(undefined);
 export const activeDeviceId: Writable<String> = writable(undefined);
+export const devicesOnline: Writable<Device[]> = writable(undefined);
 export const activeShuffleMode: Writable<ShuffleMode> = writable(ShuffleMode.Off);
+export const isPlaying: Writable<boolean> = writable(undefined);
+export const progressValue: Writable<number> = writable(undefined);
+export const volumeValue: Writable<number> = writable(undefined);
 
 export const colApi = derived(
   apiConfig,
@@ -116,4 +122,111 @@ export const windowSize = readable(getWindowSize(), (set) => {
 
 export const sleepTime = writable(0);
 
+let deviceIdVal: String;
+let playingItem: PlayItem;
+let isPlayingState: boolean;
+let currentPlayList: CurrentPlayList;
+// let progressVal: Number;
+// let volumeVal: Number;
+let devicesOnlineVal: Device[];
+let activeDeviceIdVal: String;
+
+deviceId.subscribe((value) => deviceIdVal = value);
+playItem.subscribe((value) => playingItem = value);
+isPlaying.subscribe((value) => isPlayingState = value);
+playList.subscribe((value) => currentPlayList = value);
+// progressValue.subscribe((value) => progressVal = value);
+// volumeValue.subscribe((value) => volumeVal = value);
+devicesOnline.subscribe((value) => devicesOnlineVal = value);
+activeDeviceId.subscribe((value) => activeDeviceIdVal = value);
+
 export let webSocket: WebSocket = new WebSocket(baseWsUrl(true, 3000) + "/ws");
+webSocket.addEventListener("message", evt => {
+  console.debug("evt: ", evt);
+  const wsMsg: WSMessage = JSON.parse(evt.data);
+  const msgType = Object.keys(wsMsg)[0];
+  const event = wsMsg[msgType];
+  const typedMsgType: WSMessageInType = WSMessageInType[msgType as keyof typeof WSMessageInType];
+  switch (typedMsgType) {
+    case WSMessageInType.RewindToEvent:
+      // jumpTime(event["time"]);
+      break;
+    case WSMessageInType.CurrentPosEvent:
+      console.debug("CurrentPosEvent");
+      const id = event["track_id"];
+      if (!playingItem || playingItem.id !== id) {
+        console.debug("CurrentPosEvent id= ", id);
+        console.debug("CurrentPosEvent files: ", currentPlayList.files.size);
+        // const position = event["position"];
+        const file = currentPlayList.files.get(id);
+        const time = event["time"];
+        const startPlay = false;
+        const item = new PlayItem({
+          file,
+          // position,
+          startPlay,
+          time,
+        });
+        playItem.set(item);
+      } else {
+        playingItem.time = event["time"];
+      }
+      
+      if (!isPlayingState) {
+        console.log("isPlayingState: ", isPlayingState);
+        isPlaying.set(true);
+      }
+      progressValue.set(event["time"]);
+      break;
+    case WSMessageInType.PauseEvent: 
+      isPlaying.set(false);
+      console.log("isPlaying: ", isPlaying);
+      break;
+    case WSMessageInType.ResumeEvent:
+      isPlaying.set(true);
+      break;
+    case WSMessageInType.PlayTrackEvent:
+      const trackId = event["track_id"];
+      isPlaying.set(true);
+      const file = currentPlayList.files.get(trackId);
+      const time = 0.0;
+      const startPlay = true;
+      const item = new PlayItem({
+        file,
+        // position,
+        startPlay,
+        time,
+      });
+
+      playItem.set(item);
+
+      // startPlay(playingItem);
+      // done.then(() => {
+      //   console.log("Started play of:", $playItem);
+      // })
+      break;
+    case WSMessageInType.VolumeChangeEvent:
+      volumeValue.set(event["value"]);
+      break;
+    case WSMessageInType.DevicesOnlineEvent:
+      devicesOnline.set(event["devices"]);
+      for (let device of devicesOnlineVal) {
+        if (device.active) {
+            activeDeviceId.set(device.id);
+            break;
+        }
+      };
+
+      console.log("Devices: ", devicesOnlineVal);
+      console.log("Selected device: " + activeDeviceIdVal);
+
+      break;
+    case WSMessageInType.RegisterDeviceEvent: 
+      console.debug("RegisterDeviceEvent");
+      deviceId.set(event["device_id"]);
+      break;
+    case WSMessageInType.MakeDeviceActiveEvent:
+      activeDeviceId.set(event["device_id"]);
+      break;
+  }
+});

@@ -145,28 +145,29 @@ import Shuffle from "./components/Shuffle.svelte";
   }
 
   function downloadCurrentFolder() {
-    if (!cache || !browser) return;
-    const preCaches: PrefetchRequest[] = [];
-    const files = browser.getFiles();
-    for (let i = 0; i < files.length; i++) {
-      const nextFile = files[i];
-      if (!nextFile.cached) {
-        const item = new PlayItem({
-          file: nextFile,
-          collection: $selectedCollection,
-          position: i,
-        });
-        preCaches.push({
-          url: item.url,
-          folderPosition: item.position,
-          lowPriority: true,
-        });
-      }
-    }
-    if (cache && preCaches.length > 0) {
-      console.log(`Try to cache ${preCaches.length} files`);
-      cache.cacheAhead(preCaches);
-    }
+    console.log("downloadCurrentFolder");
+    // if (!cache || !browser) return;
+    // const preCaches: PrefetchRequest[] = [];
+    // const files = browser.getFiles();
+    // for (let i = 0; i < files.size; i++) {
+    //   const nextFile = files.get(i);
+    //   if (!nextFile.cached) {
+    //     const item = new PlayItem({
+    //       file: nextFile,
+    //       collection: $selectedCollection,
+    //       position: i,
+    //     });
+    //     preCaches.push({
+    //       url: item.url,
+    //       folderPosition: item.position,
+    //       lowPriority: true,
+    //     });
+    //   }
+    // }
+    // if (cache && preCaches.length > 0) {
+    //   console.log(`Try to cache ${preCaches.length} files`);
+    //   cache.cacheAhead(preCaches);
+    // }
   }
 
   let searchValue: string;
@@ -195,9 +196,9 @@ import Shuffle from "./components/Shuffle.svelte";
     webSocket.addEventListener("close", (close) => {
       console.debug("Web socket close", close);
     });
-    webSocket.addEventListener("message", (evt) => {
-      console.debug("Message from server: " + evt.data);
-      const data = JSON.parse(evt.data);
+    // webSocket.addEventListener("message", (evt) => {
+      // console.debug("Message from server: " + evt.data);
+      // const data = JSON.parse(evt.data);
       // const parseGroup = (item) => {
       //     if (item && item.folder) {
       //         const [prefix, collection] = /^(\d+)\//.exec(item.folder);
@@ -214,7 +215,7 @@ import Shuffle from "./components/Shuffle.svelte";
       //     this.pendingQueryAnswer = null;
       //     this.pendingQueryReject = null;
       // }
-    });
+    // });
 
     try {
       await loadCollections();

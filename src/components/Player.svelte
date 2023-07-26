@@ -587,11 +587,11 @@
         `Playback ended at ${currentTime} before expected duration ${expectedDuration}, maybe problem with cached version`
       );
     } else {
-      console.debug(`File ${$playItem.name} on ${$playItem.path} finished`);
+      console.debug(`File ${$playItem.name} on ${$playItem.path} finished, wantPlay: ${wantPlay}`);
     }
     if (wantPlay) {
-      // const nextPosition = $playItem.position + 1;
-      // playPosition(nextPosition);
+      const nextPosition = $playItem.id + 1;
+      playPosition(nextPosition);
       // This is a hack to stabilize transitions on Chromium, where finished is fired twice sometimes
       const wasPlay = wantPlay;
       wantPlay = false;
@@ -601,7 +601,7 @@
 
   function playPosition(nextPosition: number, startPlay = true) {
     if (nextPosition >= 0 && nextPosition < $playList.files.size) {
-      const nextFile = $playList.files[nextPosition];
+      const nextFile = $playList.files.get(nextPosition);
       const item = new PlayItem({
         file: nextFile,
         // position: nextPosition,

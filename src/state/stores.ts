@@ -152,11 +152,9 @@ webSocket.addEventListener("message", evt => {
       // jumpTime(event["time"]);
       break;
     case WSMessageInType.CurrentPosEvent:
-      console.debug("CurrentPosEvent");
       const id = event["track_id"];
       if (!playingItem || playingItem.id !== id) {
-        console.debug("CurrentPosEvent id= ", id);
-        console.debug("CurrentPosEvent files: ", currentPlayList.files.size);
+        console.debug("CurrentPosEvent id=${id}");
         // const position = event["position"];
         const file = currentPlayList.files.get(id);
         const time = event["time"];

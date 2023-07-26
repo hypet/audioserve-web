@@ -1,30 +1,17 @@
 <script lang="ts">
   import Shuffle from "svelte-material-icons/Shuffle.svelte";
-  import { createEventDispatcher, getContext } from "svelte";
+  import { createEventDispatcher } from "svelte";
   import { clickOutside } from "../util/dom";
   import { formatWSMessage, WSMessage } from "../types/types";
-  import { ShuffleMode, WSMessageInType, WSMessageOutType } from "../types/enums";
+  import { ShuffleMode, WSMessageOutType } from "../types/enums";
   import { webSocket, activeShuffleMode } from "../state/stores";
   const dispatch = createEventDispatcher();
-  webSocket.addEventListener("message", evt => {
-      const wsMsg: WSMessage = JSON.parse(evt.data);
-      const msgType = Object.keys(wsMsg)[0];
-      const event = wsMsg[msgType];
-      const typedMsgType: WSMessageInType = WSMessageInType[msgType as keyof typeof WSMessageInType];
-      switch (typedMsgType) {
-        case WSMessageInType.SwitchShuffleEvent:
-          $activeShuffleMode = event["mode"];
-          break;
-      }
-    });
 
   let shuffleListVisible = false;
   let shuffleListButton: HTMLAnchorElement;
   const shuffleModes = Object.keys(ShuffleMode)
       .filter((value => isNaN(Number(value)) === false))
       .map(key => ShuffleMode[key]);
-
-  $activeShuffleMode = ShuffleMode.Off;
 
   function updateShuffleMode() {
     let switchShuffle: WSMessage = formatWSMessage(WSMessageOutType.SwitchShuffle, { mode: $activeShuffleMode });
@@ -56,7 +43,7 @@
                 <li class="option">
                   <input
                     type="radio"
-                    name="activeDevice"
+                    name="shuffleMode"
                     value={mode}
                     id={"shuffle-" + mode}
                     bind:group={$activeShuffleMode}

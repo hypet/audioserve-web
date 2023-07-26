@@ -10,9 +10,6 @@
   let deviceListVisible = false;
   let deviceListButton: HTMLAnchorElement;
 
-  // $: {
-  // }
-  
   function updateDeviceList() {
     let makeDeviceActive: WSMessage = formatWSMessage(WSMessageOutType.MakeDeviceActive, { device_id: $activeDeviceId });
     webSocket.send(JSON.stringify(makeDeviceActive));

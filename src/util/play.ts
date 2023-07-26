@@ -9,3 +9,7 @@ export function calculateAutorewind(lastPlay: number) {
         else if (updatedBefore < YEAR) return 30
         else return 0
 }
+
+export function randomIntFromInterval(min, max) {
+    return Math.floor(Math.random() * (max - min + 1) + min)
+}

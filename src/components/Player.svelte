@@ -4,13 +4,11 @@
     getContext,
     onDestroy,
     onMount,
-    tick,
   } from "svelte";
   import type {
     Cache,
     CachedItem,
     CacheEvent,
-    PrefetchRequest,
   } from "../cache";
   import { EventType } from "../cache";
   import TranscodedIcon from "svelte-material-icons/ArrowCollapseVertical.svelte";
@@ -51,7 +49,7 @@
   import CoverIcon from "./FolderIcon.svelte";
   import { Throttler } from "../util/events";
   import { getLocationPath, saveConfig } from "../util/browser";
-  import { calculateAutorewind } from "../util/play";
+  import { calculateAutorewind, randomIntFromInterval } from "../util/play";
   import { SMALL_SCREEN_WIDTH_LIMIT } from "../types/constants";
   import TimerControl from "./TimerControl.svelte";
   import { formatWSMessage, WSMessage } from "../types/types";
@@ -87,12 +85,7 @@
   let expanded = $config.expandedPlayerTray;
 
   let previousTime: number; // sum of time of previous items
-  let totalFolderTime: number;
-  $: formattedTotalFolderTime = formatTime(totalFolderTime);
-  $: displayFolderTime = $config.showFolderRemainingTime
-    ? formatTime(totalFolderTime - folderTime)
-    : formattedTotalFolderTime;
-
+  
   let duration: number;
   let expectedDuration: number;
   // TODO: This is WA, as ADTS with aac does not provide correct duration when cached.
@@ -250,7 +243,6 @@
     for (let i = 0; i < player.buffered.length; i++) {
       const start = timeOffset + player.buffered.start(i);
       const end = timeOffset + player.buffered.end(i);
-      // console.debug(`Checking buffer star ${start} end ${end} for time ${time}`);
       if (start <= time && time <= end) {
         return true;
       } else if (time < start && diff < 0) {
@@ -339,15 +331,10 @@
       duration = 0;
       fileDisplayName = splitExtInName(item).baseName;
       filePath = item.path;
-      // folderPosition = item.position;
       transcoded = item.transcoded;
       mime = item.mime;
       folder = $playList.folder;
       collection = $playList.collection;
-      // previousTime = $playList.files
-      //   .slice(0, item.position)
-      //   .reduce((acc, af) => acc + af.meta.duration, 0);
-      totalFolderTime = $playList.totalTime;
 
       if (item.startPlay) {
         await safePlayPlayer(true);
@@ -629,7 +616,7 @@
 
   function playPrevious() {
     if (ShuffleMode[$activeShuffleMode] === ShuffleMode[ShuffleMode.Off]) {
-      // playPosition($playItem.position - 1, !$isPlaying);
+      playPosition($playItem.id - 1, !$isPlaying);
     } else {
       let prevTrack: WSMessage = formatWSMessage(WSMessageOutType.PrevTrack, { collection: $selectedCollection, dir: folder });
       webSocket.send(JSON.stringify(prevTrack));
@@ -637,12 +624,15 @@
   }
 
   function playNext() {
-    console.log("playNext: ", ShuffleMode[$activeShuffleMode], ShuffleMode[ShuffleMode.Off]);
-    if (ShuffleMode[$activeShuffleMode] === ShuffleMode[ShuffleMode.Off]) {
-      // playPosition($playItem.position + 1, !$isPlaying);
+    console.log("playNext: ", ShuffleMode[$activeShuffleMode], $activeShuffleMode, $activeShuffleMode.valueOf(), $activeShuffleMode.toString(), ShuffleMode.Off, ShuffleMode.Off.valueOf(), ShuffleMode.Off.toString(), ShuffleMode[$activeShuffleMode] == ShuffleMode.Off.toString(), ShuffleMode[$activeShuffleMode] === ShuffleMode.Off.toString());
+    if (ShuffleMode[$activeShuffleMode] == ShuffleMode.Off.toString()) {
+      playPosition($playItem.id + 1, !$isPlaying);
     } else {
-      let nextTrack: WSMessage = formatWSMessage(WSMessageOutType.NextTrack, { collection: $selectedCollection, dir: folder });
-      webSocket.send(JSON.stringify(nextTrack));
+      // let nextTrack: WSMessage = formatWSMessage(WSMessageOutType.NextTrack, { collection: $selectedCollection, dir: folder });
+      // webSocket.send(JSON.stringify(nextTrack));
+      const nextRandomInt = randomIntFromInterval(1, $playList.files.size - 1);
+      console.log("nextRandomInt id", nextRandomInt);
+      playPosition(nextRandomInt, !$isPlaying);
     }
   }
 
@@ -839,31 +829,6 @@
           dir="rtl"
           on:click={navigateToFolder}>{folder}</span
         >
-      </div>
-      <div id="total-progress">
-        <div class="play-time" aria-label="Current time in whole folder">
-          {formattedFolderTime}
-        </div>
-        <div class="progress total">
-          <progress
-            aria-label="Total folder playback progress"
-            aria-valuetext={`${formattedFolderTime} of ${formattedTotalFolderTime}`}
-            value={folderTime}
-            max={totalFolderTime}
-          />
-        </div>
-        <div
-          class="total-time clickable"
-          on:click={() => {
-            $config.showFolderRemainingTime = !$config.showFolderRemainingTime;
-            saveConfig($config);
-          }}
-          aria-label={$config.showFolderRemainingTime
-            ? "Remaining time in the folder"
-            : "Total playback time of whole folder"}
-        >
-          {displayFolderTime}
-        </div>
       </div>
       <div class="item-info" id="file-info">
         <label

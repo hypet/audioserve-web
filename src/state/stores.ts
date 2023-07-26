@@ -130,6 +130,7 @@ let currentPlayList: CurrentPlayList;
 // let volumeVal: Number;
 let devicesOnlineVal: Device[];
 let activeDeviceIdVal: String;
+let activeShuffleModeVal: ShuffleMode;
 
 deviceId.subscribe((value) => deviceIdVal = value);
 playItem.subscribe((value) => playingItem = value);
@@ -139,6 +140,7 @@ playList.subscribe((value) => currentPlayList = value);
 // volumeValue.subscribe((value) => volumeVal = value);
 devicesOnline.subscribe((value) => devicesOnlineVal = value);
 activeDeviceId.subscribe((value) => activeDeviceIdVal = value);
+activeShuffleMode.subscribe((value) => activeShuffleModeVal = value);
 
 export let webSocket: WebSocket = new WebSocket(baseWsUrl(true, 3000) + "/ws");
 webSocket.addEventListener("message", evt => {
@@ -197,11 +199,6 @@ webSocket.addEventListener("message", evt => {
       });
 
       playItem.set(item);
-
-      // startPlay(playingItem);
-      // done.then(() => {
-      //   console.log("Started play of:", $playItem);
-      // })
       break;
     case WSMessageInType.VolumeChangeEvent:
       volumeValue.set(event["value"]);
@@ -226,5 +223,10 @@ webSocket.addEventListener("message", evt => {
     case WSMessageInType.MakeDeviceActiveEvent:
       activeDeviceId.set(event["device_id"]);
       break;
+    case WSMessageInType.SwitchShuffleEvent:
+      activeShuffleMode.set(event["mode"]);
+      console.log("activeShuffleMode", activeShuffleModeVal);
+      break;
+
   }
 });

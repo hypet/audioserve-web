@@ -307,7 +307,6 @@
       startPlay,
       time,
     });
-    console.debug("Action to start to play: " + item.id);
     let playTrack: WSMessage = formatWSMessage(WSMessageOutType.PlayTrack, 
         { collection: $selectedCollection, track_id: file.id }
       );

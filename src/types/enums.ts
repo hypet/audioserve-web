@@ -42,10 +42,10 @@ export const transcodingNameToCode = (n: TranscodingName) => TranscodingCode[n];
 export const transcodingCodeToName = (c: string) => reverseTranscoding.get(c);
 
 export enum ShuffleMode {
-  Off,
-  CurrentDir,
-  CollectionWide,
-  Global,
+  Off = 0,
+  CurrentDir = 1,
+  CollectionWide = 2,
+  Global = 3,
 }
 
 export enum WSMessageInType {

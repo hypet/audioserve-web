@@ -63,7 +63,7 @@ export const pendingDownloads: Writable<number> = writable(0);
 export const deviceId: Writable<String> = writable(undefined);
 export const activeDeviceId: Writable<String> = writable(undefined);
 export const devicesOnline: Writable<Device[]> = writable(undefined);
-export const activeShuffleMode: Writable<ShuffleMode> = writable(ShuffleMode.Off);
+export const activeShuffleMode: Writable<number> = writable(ShuffleMode.Off);
 export const isPlaying: Writable<boolean> = writable(undefined);
 export const progressValue: Writable<number> = writable(undefined);
 export const volumeValue: Writable<number> = writable(undefined);
@@ -130,7 +130,7 @@ let currentPlayList: CurrentPlayList;
 // let volumeVal: Number;
 let devicesOnlineVal: Device[];
 let activeDeviceIdVal: String;
-let activeShuffleModeVal: ShuffleMode;
+let activeShuffleModeVal: number;
 
 deviceId.subscribe((value) => deviceIdVal = value);
 playItem.subscribe((value) => playingItem = value);
@@ -224,8 +224,8 @@ webSocket.addEventListener("message", evt => {
       activeDeviceId.set(event["device_id"]);
       break;
     case WSMessageInType.SwitchShuffleEvent:
-      activeShuffleMode.set(event["mode"]);
-      console.log("activeShuffleMode", activeShuffleModeVal);
+      const mode = event["mode"];
+      activeShuffleMode.set(mode);
       break;
 
   }

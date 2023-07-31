@@ -300,10 +300,8 @@
 
   async function startPlay(item: PlayItem): Promise<void> {
     console.debug("startPlay item:", item);
-    console.debug("startPlay player:", player);
 
     if (item && player) {
-      console.debug("startPlay if player:", player);
       let source;
       if (item.cached) {
         const cachedItem = await cache?.getCachedUrl(item.url);
@@ -624,12 +622,9 @@
   }
 
   function playNext() {
-    console.log("playNext: ", ShuffleMode[$activeShuffleMode], $activeShuffleMode, $activeShuffleMode.valueOf(), $activeShuffleMode.toString(), ShuffleMode.Off, ShuffleMode.Off.valueOf(), ShuffleMode.Off.toString(), ShuffleMode[$activeShuffleMode] == ShuffleMode.Off.toString(), ShuffleMode[$activeShuffleMode] === ShuffleMode.Off.toString());
-    if (ShuffleMode[$activeShuffleMode] == ShuffleMode.Off.toString()) {
+    if (ShuffleMode[$activeShuffleMode] === ShuffleMode.Off) {
       playPosition($playItem.id + 1, !$isPlaying);
     } else {
-      // let nextTrack: WSMessage = formatWSMessage(WSMessageOutType.NextTrack, { collection: $selectedCollection, dir: folder });
-      // webSocket.send(JSON.stringify(nextTrack));
       const nextRandomInt = randomIntFromInterval(1, $playList.files.size - 1);
       console.log("nextRandomInt id", nextRandomInt);
       playPosition(nextRandomInt, !$isPlaying);

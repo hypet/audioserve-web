@@ -40,6 +40,7 @@
     activeShuffleMode,
     isPlaying,
     webSocket,
+    progressValue,
   } from "../state/stores";
   import { NavigateTarget, ShuffleMode, StorageKeys, WSMessageInType, WSMessageOutType } from "../types/enums";
   import { PlayItem } from "../types/play-item";
@@ -96,7 +97,7 @@
   ) {
     expectedDuration = duration;
   }
-  $: formattedDuration = formatTime(expectedDuration);
+  $: formattedDuration = formatTime($playItem.duration);
   let timeOffset = 0;
   let playbackTime: number;
 
@@ -108,7 +109,7 @@
     if (resetOffset) timeOffset = 0;
     try {
       player.currentTime = val - timeOffset;
-      progressValue = val;
+      $progressValue = val;
     } catch (e) {
       console.error(
         `Cannot set currentTime, val=${val}, offset=${timeOffset}: ${e}`
@@ -177,7 +178,6 @@
   let cached: boolean = false;
   let mime: string;
 
-  let progressValue = 0;
   let progressValueChanging = false;
 
   function onVolumeChange() {
@@ -191,7 +191,7 @@
       window.removeEventListener("touchend", handleProgressMouseUp);
       window.requestAnimationFrame(() => {
         // on recent Chrome range value is sometime updated in next animation frame
-        jumpTime(progressValue);
+        jumpTime($progressValue);
         if ($deviceId !== $activeDeviceId) {
           let rewindTo: WSMessage = formatWSMessage(WSMessageOutType.RewindTo, { time: progressValue });
           webSocket.send(JSON.stringify(rewindTo));
@@ -209,17 +209,17 @@
     window.addEventListener("touchend", handleProgressMouseUp);
   };
 
-  $: formattedCurrentTime = formatTime(progressValue);
+  $: formattedCurrentTime = formatTime($progressValue);
 
   const lastPositionThrottler = new Throttler((_time: number) => {
     localStorage.setItem(StorageKeys.LAST_POSITION, currentTime.toString());
     reportPosition();
     updateBuffered();
-  }, 250);
+  }, 500);
 
   $: if (currentTime != undefined && isFinite(currentTime)) {
     if (!progressValueChanging) {
-      progressValue = currentTime;
+      $progressValue = currentTime;
     }
     updateMediaSessionState();
     lastPositionThrottler.throttle(currentTime);
@@ -273,7 +273,7 @@
 
   function jumpTimeRelative(amt: number) {
     return (evt) => {
-      let toTime = progressValue + amt;
+      let toTime = $progressValue + amt;
       if (toTime < 0) {
         toTime = 0;
       } else if ($isPlaying && toTime > expectedDuration) {
@@ -506,14 +506,14 @@
     if (
       transcoded &&
       !cached &&
-      (progressValue > $config.transcodingJumpLimit ||
-        (coldStart && progressValue > 5))
+      ($progressValue > $config.transcodingJumpLimit ||
+        (coldStart && $progressValue > 5))
     ) {
-      if (safeToSeekInPlayer(progressValue)) {
+      if (safeToSeekInPlayer($progressValue)) {
         await playPlayer();
       } else {
         console.debug(`Should seek to position ${progressValue}`);
-        await loadTime(progressValue, true);
+        await loadTime($progressValue, true);
       }
     } else {
       await playPlayer();
@@ -544,15 +544,15 @@
   }
 
   function autorewind() {
-    if ($config.autorewind && progressValue > 0) {
+    if ($config.autorewind && $progressValue > 0) {
       const lastPosition =
         Number(localStorage.getItem(StorageKeys.LAST_POSITION)) || 0;
       const lastTimestamp =
         Number(localStorage.getItem(StorageKeys.LAST_PAUSE)) || Date.now();
-      const diff = Math.abs(progressValue - lastPosition); // used for sanity check, if we are in synch
+      const diff = Math.abs($progressValue - lastPosition); // used for sanity check, if we are in synch
       const offset = calculateAutorewind(lastTimestamp);
       if (offset > 0 && diff <= 1) {
-        let newTime = progressValue - offset;
+        let newTime = $progressValue - offset;
         if (newTime < timeOffset) newTime = timeOffset;
         if (
           cached ||
@@ -889,15 +889,15 @@
             type="range"
             id="playback-progress"
             min="0"
-            max={expectedDuration}
-            bind:value={progressValue}
+            max={$playItem.duration}
+            bind:value={$progressValue}
             on:mousedown={handleProgressMouseDown}
             on:touchstart={handleProgressMouseDown}
             aria-label="File Playback Time"
             aria-valuetext={`${formattedCurrentTime} of ${formattedDuration}`}
             on:keydown={(evt) => evt.preventDefault()}
           />
-          <CacheIndicator ranges={buffered} totalTime={expectedDuration} />
+          <CacheIndicator ranges={buffered} totalTime={$playItem.duration} />
         </div>
       </div>
       <div class="total-time" aria-label="Total time of current file">

@@ -64,7 +64,7 @@ export const deviceId: Writable<String> = writable(undefined);
 export const activeDeviceId: Writable<String> = writable(undefined);
 export const devicesOnline: Writable<Device[]> = writable(undefined);
 export const activeShuffleMode: Writable<number> = writable(ShuffleMode.Off);
-export const isPlaying: Writable<boolean> = writable(undefined);
+export const isPlaying: Writable<boolean> = writable(false);
 export const progressValue: Writable<number> = writable(undefined);
 export const volumeValue: Writable<number> = writable(undefined);
 
@@ -187,7 +187,7 @@ webSocket.addEventListener("message", evt => {
       break;
     case WSMessageInType.PlayTrackEvent:
       const trackId = event["track_id"];
-      isPlaying.set(true);
+      isPlaying.set(false);
       const file = currentPlayList.files.get(trackId);
       const time = 0.0;
       const startPlay = true;

@@ -94,10 +94,10 @@ export class AudioCache {
     folderPosition?: number
   ) {
     // abort all previous direct request
-    if (isDirect)
-      this.queue.forEach((i) => {
-        if (i.isDirect) i.abort.abort();
-      });
+    // if (isDirect)
+      // this.queue.forEach((i) => {
+      //   if (i.isDirect) i.abort.abort();
+      // });
     this.queue.push(new FetchQueueItem(url, abort, isDirect, folderPosition));
   }
 
@@ -115,7 +115,7 @@ export class AudioCache {
         (!pathPrefix || new URL(i.url).pathname.startsWith(pathPrefix))
       ) {
         console.debug(`Aborting ${JSON.stringify(i)}`);
-        i.abort.abort();
+        // i.abort.abort();
         // Firefox seems not to generate error when aborting request, so delete it if it was not deleted due to error
         setTimeout(() => {
           this.delete(i.url);

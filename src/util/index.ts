@@ -52,6 +52,9 @@ export function splitPath(path: string): { folder?: string; file: string } {
 }
 
 export function splitRootPath(path: string): { root?: string; path: string } {
+  if (!path) {
+    return { path: ''};
+  }
   let idx = path.indexOf("/");
   if (idx < 0) {
     idx = path.lastIndexOf("\\");

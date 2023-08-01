@@ -33,7 +33,7 @@
       use:clickOutside={deviceListButton}
       on:outclick={() => (deviceListVisible = false)}
     >
-      <aside class="dropdown-content" style={deviceListVisible ? "" : "display:none"}>
+      <aside class="dropdown-content-devices" style={deviceListVisible ? "" : "display:none"}>
         <nav>
             <ul>
                 {#each $devicesOnline as device}
@@ -79,11 +79,11 @@
       display: inline-block;
     }
   
-    .dropdown-content {
+    .dropdown-content-devices {
       position: absolute;
       right: 0;
       background-color: var(--menu-background);
-      min-width: 350px;
+      min-width: 300px;
       box-shadow: 0px 8px 16px 0px var(--menu-shadow);
       z-index: 999;
       padding-left: 1rem;

@@ -36,7 +36,7 @@
       use:clickOutside={shuffleListButton}
       on:outclick={() => (shuffleListVisible = false)}
     >
-      <aside class="dropdown-content" style={shuffleListVisible ? "" : "display:none"}>
+      <aside class="dropdown-content-shuffle" style={shuffleListVisible ? "" : "display:none"}>
         <nav>
             <ul>
                 {#each shuffleModes as mode}
@@ -79,11 +79,11 @@
       display: inline-block;
     }
   
-    .dropdown-content {
+    .dropdown-content-shuffle {
       position: absolute;
       right: 0;
       background-color: var(--menu-background);
-      min-width: 350px;
+      min-width: 200px;
       box-shadow: 0px 8px 16px 0px var(--menu-shadow);
       z-index: 999;
       padding-left: 1rem;

@@ -41,6 +41,8 @@
     isPlaying,
     webSocket,
     progressValue,
+    progressValueChanging,
+    rewindToValue,
   } from "../state/stores";
   import { NavigateTarget, ShuffleMode, StorageKeys, WSMessageInType, WSMessageOutType } from "../types/enums";
   import { PlayItem } from "../types/play-item";
@@ -70,7 +72,7 @@
   };
 
   function playerError() {
-    progressValueChanging = false;
+    $progressValueChanging = false;
     const e = player.error;
     console.error("Player error", e);
     const msg = e.message
@@ -105,6 +107,14 @@
   $: {
     currentTime = timeOffset + playbackTime;
   }
+  $: {
+    if ($rewindToValue) {
+      console.log("Jump to time", $rewindToValue);
+      jumpTime($rewindToValue);
+      $rewindToValue = undefined;
+    }
+  }
+  
   function setCurrentTime(val: number, resetOffset = false) {
     if (resetOffset) timeOffset = 0;
     try {
@@ -178,33 +188,31 @@
   let cached: boolean = false;
   let mime: string;
 
-  let progressValueChanging = false;
-
   function onVolumeChange() {
     let volumeChange: WSMessage = formatWSMessage(WSMessageOutType.VolumeChange, { value: volumeControl });
     webSocket.send(JSON.stringify(volumeChange));
   }
 
   const handleProgressMouseUp = () => {
-    if (progressValueChanging) {
+    if ($progressValueChanging) {
       window.removeEventListener("mouseup", handleProgressMouseUp);
       window.removeEventListener("touchend", handleProgressMouseUp);
       window.requestAnimationFrame(() => {
         // on recent Chrome range value is sometime updated in next animation frame
         jumpTime($progressValue);
         if ($deviceId !== $activeDeviceId) {
-          let rewindTo: WSMessage = formatWSMessage(WSMessageOutType.RewindTo, { time: progressValue });
+          let rewindTo: WSMessage = formatWSMessage(WSMessageOutType.RewindTo, { time: $progressValue });
           webSocket.send(JSON.stringify(rewindTo));
         }
         setTimeout(() => {
-          progressValueChanging = false;
+          $progressValueChanging = false;
         }, 200);
       });
     }
   };
 
   const handleProgressMouseDown = () => {
-    progressValueChanging = true;
+    $progressValueChanging = true;
     window.addEventListener("mouseup", handleProgressMouseUp);
     window.addEventListener("touchend", handleProgressMouseUp);
   };
@@ -218,7 +226,7 @@
   }, 500);
 
   $: if (currentTime != undefined && isFinite(currentTime)) {
-    if (!progressValueChanging) {
+    if (!$progressValueChanging) {
       $progressValue = currentTime;
     }
     updateMediaSessionState();
@@ -258,7 +266,7 @@
   };
 
   function jumpTime(time: number) {
-    if (transcoded && !cached && !$isPlaying) {
+    if (!$isPlaying) {
       // can move only to already buffered or slightly beyond
       // otherwise use seek on server
       if (safeToSeekInPlayer(time)) {
@@ -472,12 +480,12 @@
     cached = true;
     // $playItem.cached = true;
     if (!keepPaused) {
-      progressValueChanging = true;
+      $progressValueChanging = true;
       playPlayer();
       player.addEventListener(
         "canplay",
         (evt) => {
-          progressValueChanging = false;
+          $progressValueChanging = false;
           setCurrentTime(pos, true);
         },
         { once: true }

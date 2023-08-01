@@ -66,6 +66,8 @@ export const devicesOnline: Writable<Device[]> = writable(undefined);
 export const activeShuffleMode: Writable<number> = writable(ShuffleMode.Off);
 export const isPlaying: Writable<boolean> = writable(false);
 export const progressValue: Writable<number> = writable(undefined);
+export const progressValueChanging: Writable<boolean> = writable(false);
+export const rewindToValue: Writable<number> = writable(undefined);
 export const volumeValue: Writable<number> = writable(undefined);
 
 export const colApi = derived(
@@ -130,7 +132,7 @@ let currentPlayList: CurrentPlayList;
 // let volumeVal: Number;
 let devicesOnlineVal: Device[];
 let activeDeviceIdVal: String;
-let activeShuffleModeVal: number;
+// let activeShuffleModeVal: number;
 
 deviceId.subscribe((value) => deviceIdVal = value);
 playItem.subscribe((value) => playingItem = value);
@@ -140,7 +142,7 @@ playList.subscribe((value) => currentPlayList = value);
 // volumeValue.subscribe((value) => volumeVal = value);
 devicesOnline.subscribe((value) => devicesOnlineVal = value);
 activeDeviceId.subscribe((value) => activeDeviceIdVal = value);
-activeShuffleMode.subscribe((value) => activeShuffleModeVal = value);
+// activeShuffleMode.subscribe((value) => activeShuffleModeVal = value);
 
 export let webSocket: WebSocket = new WebSocket(baseWsUrl(true, 3000) + "/ws");
 webSocket.addEventListener("message", evt => {
@@ -150,16 +152,20 @@ webSocket.addEventListener("message", evt => {
   const event = wsMsg[msgType];
   const typedMsgType: WSMessageInType = WSMessageInType[msgType as keyof typeof WSMessageInType];
   switch (typedMsgType) {
-    case WSMessageInType.RewindToEvent:
-      // jumpTime(event["time"]);
+    case WSMessageInType.RewindToEvent: {
+      const time: number = event["time"];
+      if (time > 0) {
+        console.log("RewindTo: ", time);
+        rewindToValue.set(time);
+      }
       break;
-    case WSMessageInType.CurrentPosEvent:
-      const id = event["track_id"];
+    }
+    case WSMessageInType.CurrentPosEvent: {
+      const id: number = event["track_id"];
+      const time: number = event["time"];
       if (!playingItem || playingItem.id !== id) {
-        console.debug("CurrentPosEvent id=${id}");
-        // const position = event["position"];
+        console.log("CurrentPosEvent id=", id);
         const file = currentPlayList.files.get(id);
-        const time = event["time"];
         const startPlay = false;
         const item = new PlayItem({
           file,
@@ -169,15 +175,16 @@ webSocket.addEventListener("message", evt => {
         });
         playItem.set(item);
       } else {
-        playingItem.time = event["time"];
+        playingItem.time = time;
       }
       
       if (!isPlayingState) {
         console.log("isPlayingState: ", isPlayingState);
         isPlaying.set(true);
       }
-      progressValue.set(event["time"]);
+      progressValue.set(time);
       break;
+    }
     case WSMessageInType.PauseEvent: 
       isPlaying.set(false);
       console.log("isPlaying: ", isPlaying);
@@ -185,7 +192,7 @@ webSocket.addEventListener("message", evt => {
     case WSMessageInType.ResumeEvent:
       isPlaying.set(true);
       break;
-    case WSMessageInType.PlayTrackEvent:
+    case WSMessageInType.PlayTrackEvent: {
       const trackId = event["track_id"];
       isPlaying.set(false);
       const file = currentPlayList.files.get(trackId);
@@ -193,17 +200,17 @@ webSocket.addEventListener("message", evt => {
       const startPlay = true;
       const item = new PlayItem({
         file,
-        // position,
         startPlay,
         time,
       });
 
       playItem.set(item);
       break;
+    }
     case WSMessageInType.VolumeChangeEvent:
       volumeValue.set(event["value"]);
       break;
-    case WSMessageInType.DevicesOnlineEvent:
+    case WSMessageInType.DevicesOnlineEvent: {
       devicesOnline.set(event["devices"]);
       for (let device of devicesOnlineVal) {
         if (device.active) {
@@ -216,6 +223,7 @@ webSocket.addEventListener("message", evt => {
       console.log("Selected device: " + activeDeviceIdVal);
 
       break;
+    }
     case WSMessageInType.RegisterDeviceEvent: 
       console.debug("RegisterDeviceEvent");
       deviceId.set(event["device_id"]);
@@ -227,6 +235,5 @@ webSocket.addEventListener("message", evt => {
       const mode = event["mode"];
       activeShuffleMode.set(mode);
       break;
-
   }
 });

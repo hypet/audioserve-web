@@ -118,7 +118,9 @@
   function setCurrentTime(val: number, resetOffset = false) {
     if (resetOffset) timeOffset = 0;
     try {
-      player.currentTime = val - timeOffset;
+      if ($deviceId === $activeDeviceId) {
+        player.currentTime = val - timeOffset;
+      }
       $progressValue = val;
     } catch (e) {
       console.error(

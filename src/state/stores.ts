@@ -207,9 +207,10 @@ webSocket.addEventListener("message", evt => {
       playItem.set(item);
       break;
     }
-    case WSMessageInType.VolumeChangeEvent:
+    case WSMessageInType.VolumeChangeEvent: {
       volumeValue.set(event["value"]);
       break;
+    }
     case WSMessageInType.DevicesOnlineEvent: {
       devicesOnline.set(event["devices"]);
       for (let device of devicesOnlineVal) {

@@ -43,8 +43,9 @@
     progressValue,
     progressValueChanging,
     rewindToValue,
+    volumeValue,
   } from "../state/stores";
-  import { NavigateTarget, ShuffleMode, StorageKeys, WSMessageInType, WSMessageOutType } from "../types/enums";
+  import { NavigateTarget, ShuffleMode, StorageKeys, WSMessageOutType } from "../types/enums";
   import { PlayItem } from "../types/play-item";
   import { formatTime } from "../util/date";
   import { splitExtInName, splitPath, splitRootPath, splitUrl } from "../util";
@@ -176,6 +177,9 @@
   let volume: number = Number(volumeControl / 100);
   $: {
     volume = (volumeControl || 100) / 100;
+  }
+  $: {
+    volumeControl = $volumeValue || 100;
   }
   let fileDisplayName = "";
   let filePath: string;

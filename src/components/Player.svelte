@@ -74,12 +74,8 @@
   function playerError() {
     $progressValueChanging = false;
     const e = player.error;
-    console.error("Player error", e);
-    const msg = e.message
-      ? `${codeName(e.code)} : ${e.message}`
-      : codeName(e.code);
-    alert(`Player Error: ${msg}, will reload window`);
-    window.location.reload();
+    console.error("Player error on ${$playItem.title}", e);
+    tryNextFile();
   }
 
   const dispatch = createEventDispatcher();

@@ -72,6 +72,7 @@
 
   let subfolders: Subfolder[] = [];
   let files: Map<number, AudioFileExt> = new Map<number, AudioFileExt>();
+  let dirs: Map<string, AudioFileExt[]> = new Map<string, AudioFileExt[]>();
   export const getFiles = () => files;
   let folderPath: string | undefined;
   let isCollapsed = false;
@@ -222,6 +223,12 @@
       });
 
       files = audioFolder.files!;
+      audioFolder.files.forEach((f: AudioFileExt) => {
+          const filesInDir = dirs.get(f.parent_dir) || [];
+          filesInDir.push(f);
+          dirs.set(f.parent_dir, filesInDir);
+      });
+      console.log("dirs: ", dirs);
         // cachedPaths && cachedPaths.length > 0
         //   ? audioFolder.files!.map((file: AudioFileExt) => {
         //       if (cachedPaths.indexOf(file.path) >= 0) {
@@ -243,6 +250,7 @@
 
       $playList = {
         files,
+        dirs,
         collection: $selectedCollection,
         folder: $currentFolder.value,
         totalTime: folderTime,

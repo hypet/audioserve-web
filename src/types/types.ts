@@ -15,6 +15,7 @@ export interface CurrentFolder {
 export interface CurrentPlayList {
   // files: AudioFileExt[];
   files: Map<number, AudioFileExt>;
+  dirs: Map<string, AudioFileExt[]>;
   collection: number;
   folder: string;
   totalTime: number;

@@ -50,6 +50,12 @@ export interface AudioFile {
      */
     path: string;
     /**
+     *
+     * @type {string}
+     * @memberof AudioFile
+     */
+    parent_dir: string;
+    /**
      * 
      * @type {AudioFileMeta}
      * @memberof AudioFile
@@ -93,6 +99,7 @@ export function AudioFileFromJSONTyped(json: any, ignoreDiscriminator: boolean):
         'id': json['id'],
         'name': json['name'],
         'path': json['path'],
+        'parent_dir': json['parent_dir'],
         'meta': !exists(json, 'meta') ? undefined : AudioFileMetaFromJSON(json['meta']),
         'mime': json['mime'],
         'section': !exists(json, 'section') ? undefined : AudioFileSectionFromJSON(json['section']),

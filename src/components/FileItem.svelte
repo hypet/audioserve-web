@@ -57,7 +57,6 @@
   $: isPlaying =
     $playItem &&
     $playList &&
-    $playItem.position === position &&
     $playItem.path === file.path &&
     $playList.folder === $currentFolder.value &&
     $currentFolder.type === FolderType.REGULAR &&

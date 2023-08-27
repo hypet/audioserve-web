@@ -14,8 +14,6 @@ models/PositionShort.ts
 models/SearchResult.ts
 models/SharedSecret.ts
 models/Subfolder.ts
-models/Transcoding.ts
-models/TranscodingsInfo.ts
 models/TypedFile.ts
 models/index.ts
 runtime.ts

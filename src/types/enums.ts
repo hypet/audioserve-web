@@ -24,23 +24,6 @@ export enum NavigateTarget {
   PLAY_ITEM,
 }
 
-export enum TranscodingCode {
-  Low = "l",
-  Medium = "m",
-  High = "h",
-  None = "0",
-}
-
-export type TranscodingName = keyof typeof TranscodingCode;
-
-const reverseTranscoding = new Map<string, TranscodingName>();
-Object.keys(TranscodingCode).forEach((k: TranscodingName) =>
-  reverseTranscoding.set(TranscodingCode[k], k)
-);
-
-export const transcodingNameToCode = (n: TranscodingName) => TranscodingCode[n];
-export const transcodingCodeToName = (c: string) => reverseTranscoding.get(c);
-
 export enum ShuffleMode {
   Off = 0,
   CurrentDir = 1,

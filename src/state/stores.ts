@@ -1,24 +1,24 @@
 import { writable, derived, readable } from "svelte/store";
+import { deviceName } from "../util/browser";
 import type { Writable, Readable } from "svelte/store";
 import { defaultConfig } from "../app-config";
 import { CollectionsApi, Configuration, PositionsApi } from "../client";
-import type { CollectionsInfo, Transcoding, TranscodingsInfo } from "../client";
+import type { CollectionsInfo } from "../client";
 import { PlaybackSync } from "../client-position/playback-sync";
 import {
   ShuffleMode,
   StorageKeys,
-  TranscodingCode,
   WSMessageInType,
-  transcodingCodeToName,
+  WSMessageOutType,
 } from "../types/enums";
 import { PlayItem } from "../types/play-item";
-import type {
-  AppConfig,
-  CurrentFolder,
-  CurrentPlayList,
-  ClientDevice as Device,
-  TranscodingDetail,
-  WSMessage,
+import {
+  formatWSMessage,
+  type AppConfig,
+  type CurrentFolder,
+  type CurrentPlayList,
+  type ClientDevice as Device,
+  type WSMessage,
 } from "../types/types";
 import { isDevelopment } from "../util/version";
 import { baseWsUrl } from "../util/browser";
@@ -27,48 +27,20 @@ export const isAuthenticated = writable(true);
 export const apiConfig = writable(new Configuration());
 export const group = writable(localStorage.getItem(StorageKeys.GROUP));
 export const collections: Writable<CollectionsInfo | undefined> = writable();
-export const selectedCollection: Writable<number | undefined> = writable();
-
-export const transcodings: Writable<TranscodingsInfo> = writable();
-const initialTranscoding =
-  localStorage.getItem(StorageKeys.TRANSCODING) || TranscodingCode.Medium;
-export const selectedTranscoding: Writable<TranscodingCode> = writable(
-  initialTranscoding as TranscodingCode
-);
-export const selectedTranscodingDetails: Readable<TranscodingDetail> = derived(
-  [transcodings, selectedTranscoding],
-  ([$transcodings, $selectedTranscoding]) => {
-    const code = $selectedTranscoding;
-    const key = transcodingCodeToName(code).toLocaleLowerCase();
-    if ($transcodings && key in $transcodings) {
-      const info: Transcoding = $transcodings[key];
-      return {
-        code,
-        bitrate: info.bitrate,
-        name: info.name,
-      };
-    } else {
-      return {
-        code,
-        bitrate: 0,
-      };
-    }
-  }
-);
-
+export const selectedCollection: Writable<number> = writable();
 export const currentFolder: Writable<CurrentFolder | undefined> = writable(undefined);
-export const playItem: Writable<PlayItem> = writable(undefined);
-export const playList: Writable<CurrentPlayList> = writable(undefined);
+export const playItem: Writable<PlayItem | undefined> = writable(undefined);
+export const playList: Writable<Nullable<CurrentPlayList>> = writable(null);
 export const pendingDownloads: Writable<number> = writable(0);
-export const deviceId: Writable<String> = writable(undefined);
-export const activeDeviceId: Writable<String> = writable(undefined);
-export const devicesOnline: Writable<Device[]> = writable(undefined);
+export const deviceId: Writable<String | undefined> = writable(undefined);
+export const activeDeviceId: Writable<String | undefined> = writable(undefined);
+export const devicesOnline: Writable<Device[]> = writable([]);
 export const activeShuffleMode: Writable<number> = writable(ShuffleMode.Off);
 export const isPlaying: Writable<boolean> = writable(false);
-export const progressValue: Writable<number> = writable(undefined);
+export const progressValue: Writable<number | undefined> = writable(undefined);
 export const progressValueChanging: Writable<boolean> = writable(false);
-export const rewindToValue: Writable<number> = writable(undefined);
-export const volumeValue: Writable<number> = writable(undefined);
+export const rewindToValue: Writable<number | undefined> = writable(undefined);
+export const volumeValue: Writable<number | undefined> = writable(undefined);
 
 export const colApi = derived(
   apiConfig,
@@ -128,23 +100,31 @@ let deviceIdVal: String;
 let playingItem: PlayItem;
 let isPlayingState: boolean;
 let currentPlayList: CurrentPlayList;
-// let progressVal: Number;
-// let volumeVal: Number;
 let devicesOnlineVal: Device[];
 let activeDeviceIdVal: String;
-// let activeShuffleModeVal: number;
 
 deviceId.subscribe((value) => deviceIdVal = value);
 playItem.subscribe((value) => playingItem = value);
 isPlaying.subscribe((value) => isPlayingState = value);
 playList.subscribe((value) => currentPlayList = value);
-// progressValue.subscribe((value) => progressVal = value);
-// volumeValue.subscribe((value) => volumeVal = value);
 devicesOnline.subscribe((value) => devicesOnlineVal = value);
 activeDeviceId.subscribe((value) => activeDeviceIdVal = value);
-// activeShuffleMode.subscribe((value) => activeShuffleModeVal = value);
 
 export let webSocket: WebSocket = new WebSocket(baseWsUrl(true, 3000) + "/ws");
+webSocket.addEventListener("open", () => {
+  console.log("WebSocket opened");
+  let regDeviceReq: WSMessage = formatWSMessage(
+    WSMessageOutType.RegisterDevice,
+    { name: deviceName() }
+  );
+  webSocket.send(JSON.stringify(regDeviceReq));
+});
+webSocket.addEventListener("error", (err) => {
+  console.error(`Web socket error`, err);
+});
+webSocket.addEventListener("close", (close) => {
+  console.debug("Web socket close", close);
+});
 webSocket.addEventListener("message", evt => {
   console.debug("evt: ", evt);
   const wsMsg: WSMessage = JSON.parse(evt.data);
@@ -163,17 +143,19 @@ webSocket.addEventListener("message", evt => {
     case WSMessageInType.CurrentPosEvent: {
       const id: number = event["track_id"];
       const time: number = event["time"];
+      if (!playList) return;
+
       if (!playingItem || playingItem.id !== id) {
         console.log("CurrentPosEvent id=", id);
         const file = currentPlayList.files.get(id);
         const startPlay = false;
         const item = new PlayItem({
           file,
-          // position,
           startPlay,
           time,
         });
         playItem.set(item);
+        selectedCollection.set(event["collection"]);
       } else {
         playingItem.time = time;
       }
@@ -198,6 +180,7 @@ webSocket.addEventListener("message", evt => {
       const file = currentPlayList.files.get(trackId);
       const time = 0.0;
       const startPlay = true;
+      selectedCollection.set(event["collection"]);
       const item = new PlayItem({
         file,
         startPlay,

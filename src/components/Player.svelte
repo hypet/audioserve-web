@@ -56,7 +56,8 @@
   import { calculateAutorewind, randomIntFromInterval } from "../util/play";
   import { SMALL_SCREEN_WIDTH_LIMIT } from "../types/constants";
   import TimerControl from "./TimerControl.svelte";
-  import { formatWSMessage, WSMessage } from "../types/types";
+  import { formatWSMessage } from "../types/types";
+  import type { WSMessage } from "../types/types";
 
   const fileIconSize = "1.5rem";
   const controlSize = "48px";

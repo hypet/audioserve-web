@@ -10,3 +10,5 @@ declare namespace svelte.JSX {
     onslideend?: (e: CustomEvent) => void;
   }
 }
+
+type Nullable<T> = T | null;

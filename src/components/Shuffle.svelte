@@ -2,9 +2,10 @@
   import Shuffle from "svelte-material-icons/Shuffle.svelte";
   import { createEventDispatcher } from "svelte";
   import { clickOutside } from "../util/dom";
-  import { formatWSMessage, WSMessage } from "../types/types";
+  import { formatWSMessage } from "../types/types";
   import { ShuffleMode, WSMessageOutType } from "../types/enums";
   import { webSocket, activeShuffleMode } from "../state/stores";
+  import type { WSMessage } from "../types/types";
   const dispatch = createEventDispatcher();
 
   let shuffleListVisible = false;

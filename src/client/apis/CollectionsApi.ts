@@ -18,7 +18,6 @@ import type {
   AudioFolder,
   CollectionsInfo,
   SearchResult,
-  TranscodingsInfo,
 } from '../models';
 import {
     AudioFolderFromJSON,
@@ -26,8 +25,6 @@ import {
     CollectionsInfoToJSON,
     SearchResultFromJSON,
     SearchResultToJSON,
-    TranscodingsInfoFromJSON,
-    TranscodingsInfoToJSON,
 } from '../models';
 
 export interface ColIdAudioPathGetRequest {
@@ -540,41 +537,6 @@ export class CollectionsApi extends runtime.BaseAPI {
         const response = await this.collectionsGetRaw(initOverrides);
         return await response.value();
     }
-
-    /**
-     * Gets current transcoding settings on the server. Server has 3 transcodings presets: `high`, `medium`, `low` (or no transcoding), between which client can choose, when  streaming audofile.  If `max_transcodings` is reached server returns `503 Service Unavailable` -  it\'s client responsibility to retry later. Normally should be called after `collections` call, unless client is not interested in transcoding capabilities at all.
-     */
-    // async transcodingsGetRaw(initOverrides?: RequestInit): Promise<runtime.ApiResponse<TranscodingsInfo>> {
-    //     const queryParameters: any = {};
-
-    //     const headerParameters: runtime.HTTPHeaders = {};
-
-    //     if (this.configuration && this.configuration.accessToken) {
-    //         const token = this.configuration.accessToken;
-    //         const tokenString = await token("bearerAuth", []);
-
-    //         if (tokenString) {
-    //             headerParameters["Authorization"] = `Bearer ${tokenString}`;
-    //         }
-    //     }
-    //     const response = await this.request({
-    //         path: `/transcodings/`,
-    //         method: 'GET',
-    //         headers: headerParameters,
-    //         query: queryParameters,
-    //     }, initOverrides);
-
-    //     return new runtime.JSONApiResponse(response, (jsonValue) => TranscodingsInfoFromJSON(jsonValue));
-    // }
-
-    // /**
-    //  * Gets current transcoding settings on the server. Server has 3 transcodings presets: `high`, `medium`, `low` (or no transcoding), between which client can choose, when  streaming audofile.  If `max_transcodings` is reached server returns `503 Service Unavailable` -  it\'s client responsibility to retry later. Normally should be called after `collections` call, unless client is not interested in transcoding capabilities at all.
-    //  */
-    // async transcodingsGet(initOverrides?: RequestInit): Promise<TranscodingsInfo> {
-    //     const response = await this.transcodingsGetRaw(initOverrides);
-    //     return await response.value();
-    // }
-
 }
 
 /**

@@ -22,20 +22,18 @@
     playItem,
     pendingDownloads,
     sleepTime,
-    webSocket,
   } from "./state/stores";
-  import { onMount, setContext } from "svelte";
+  import { onMount, setContext } from 'svelte';
   import { Configuration, ResponseError } from "./client";
   import { deleteCookie } from "./util/auth";
   import CollectionSelector from "./components/CollectionSelector.svelte";
   import Browser from "./components/Browser.svelte";
-  import { deviceName } from "./util/browser";
-  import { FolderType, StorageKeys, WSMessageOutType } from "./types/enums";
+  import { FolderType, StorageKeys } from "./types/enums";
   import Breadcrumb from "./components/Breadcrumb.svelte";
   import { baseUrl, otherTheme } from "./util/browser";
   import { gainFocus } from "./util/dom";
   import Player from "./components/Player.svelte";
-  import type { Cache, PrefetchRequest } from "./cache";
+  import type { Cache } from "./cache";
   import { APP_COMMIT, APP_VERSION, isDevelopment } from "./util/version";
   import ConfirmDialog from "./components/ConfirmDialog.svelte";
   import { createAudioContext, loadAudioFile, playBuffer } from "./util/audio";
@@ -44,10 +42,7 @@
   import { HistoryWrapper, parseHistoryFragment } from "./util/history";
   import { API_CACHE_NAME, SMALL_SCREEN_WIDTH_LIMIT } from "./types/constants";
   import Recent from "./components/Recent.svelte";
-  import { PlayItem } from "./types/play-item";
-  import { formatWSMessage } from "./types/types";
-  import type { WSMessage } from "./types/types";
-import Shuffle from "./components/Shuffle.svelte";
+  import Shuffle from "./components/Shuffle.svelte";
   
   export let cache: Cache;
   if (cache) {
@@ -56,6 +51,36 @@ import Shuffle from "./components/Shuffle.svelte";
     setContext("cache", cache);
   }
   export let initialHash: string | undefined;
+
+  onMount(async () => {
+    console.log("App onMount");
+    try {
+      await loadCollections();
+    } catch (e) {
+      console.error("Error loading initial lists", e);
+      if (e instanceof ResponseError) {
+        if (e.response.status === 401) {
+          $isAuthenticated = false;
+          // try to load again after authentication
+          const _unsubsribe = isAuthenticated.subscribe(async (ok) => {
+            if (ok) {
+              try {
+                await loadCollections();
+              } catch (e) {
+                error = `Fail to load collections after authentication, one reason can be insecure context and API on different origin`;
+              }
+            }
+          });
+        } else {
+          error = `Unexpected response from server: ${e.response.status} ${e}`;
+        }
+      } else {
+        error = `Cannot contact server: ${e}`;
+      }
+    }
+  });
+
+  $: console.debug("Selected collection is " + $selectedCollection);
 
   if (initialHash) {
     const fld = parseHistoryFragment(initialHash);
@@ -89,9 +114,10 @@ import Shuffle from "./components/Shuffle.svelte";
   let isInitialized = false;
 
   async function loadCollections() {
+    console.log("loadCollections");
     const res = Promise.all([
       $colApi.collectionsGet().then((cols) => {
-        console.debug("Got collections list", cols);
+        console.log("Got collections list", cols);
         $collections = cols;
         let parsedCollection: number = parseInt(
           localStorage.getItem(StorageKeys.LAST_COLLECTION) || "0"
@@ -179,71 +205,6 @@ import Shuffle from "./components/Shuffle.svelte";
   }
 
   let error: string = null;
-
-  onMount(async () => {
-    console.debug("App onMount");
-    webSocket.addEventListener("open", () => {
-      console.log("WebSocket opened");
-      let regDeviceReq: WSMessage = formatWSMessage(
-        WSMessageOutType.RegisterDevice,
-        { name: deviceName() }
-      );
-      webSocket.send(JSON.stringify(regDeviceReq));
-    });
-    webSocket.addEventListener("error", (err) => {
-      console.error(`Web socket error`, err);
-    });
-    webSocket.addEventListener("close", (close) => {
-      console.debug("Web socket close", close);
-    });
-    // webSocket.addEventListener("message", (evt) => {
-      // console.debug("Message from server: " + evt.data);
-      // const data = JSON.parse(evt.data);
-      // const parseGroup = (item) => {
-      //     if (item && item.folder) {
-      //         const [prefix, collection] = /^(\d+)\//.exec(item.folder);
-      //         item.folder = item.folder.substr(prefix.length);
-      //         item.collection = parseInt(collection);
-      //     }
-      // };
-      // parseGroup(data.folder);
-      // parseGroup(data.last);
-      // if (this.pendingQueryAnswer) {
-      //     if (this.pendingQueryTimeout) clearInterval(this.pendingQueryTimeout);
-      //     this.pendingQueryTimeout = null;
-      //     this.pendingQueryAnswer(data);
-      //     this.pendingQueryAnswer = null;
-      //     this.pendingQueryReject = null;
-      // }
-    // });
-
-    try {
-      await loadCollections();
-    } catch (e) {
-      console.error("Error loading initial lists", e);
-      if (e instanceof ResponseError) {
-        if (e.response.status === 401) {
-          $isAuthenticated = false;
-          // try to load again after authentication
-          const _unsubsribe = isAuthenticated.subscribe(async (ok) => {
-            if (ok) {
-              try {
-                await loadCollections();
-              } catch (e) {
-                error = `Fail to load collections after authentication, one reason can be insecure context and API on different origin`;
-              }
-            }
-          });
-        } else {
-          error = `Unexpected response from server: ${e.response.status} ${e}`;
-        }
-      } else {
-        error = `Cannot contact server: ${e}`;
-      }
-    }
-  });
-
-  $: console.debug("Selected collection is " + $selectedCollection);
 
   let showSearch = true;
   let showCollectionSelect = true;

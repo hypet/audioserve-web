@@ -1,6 +1,6 @@
 import { WSMessageOutType } from "./enums";
 import type { AudioFile } from "../client";
-import type { FolderType, TranscodingCode } from "./enums";
+import type { FolderType } from "./enums";
 
 export interface AudioFileExt extends AudioFile {
   cached?: boolean;
@@ -42,19 +42,13 @@ export interface AppConfig {
   enableSlideInBrowser: boolean;
 }
 
-export interface TranscodingDetail {
-  code: TranscodingCode;
-  bitrate: number;
-  name?: string;
-}
-
 export interface ClientDevice {
   name: string,
   id: string,
   active: boolean
 }
 
-export interface WSMessage extends Record<string,any> {
+export interface WSMessage extends Record<string, any> {
 }
 
 export function formatWSMessage(wsMsgType: WSMessageOutType, data: object): WSMessage {

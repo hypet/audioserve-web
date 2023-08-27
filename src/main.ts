@@ -17,6 +17,7 @@ console.log(
 let app: App;
 
 function createApp(cache: Cache) {
+  console.log("createApp", cache);
   app = new App({
     target: document.body,
     props: { cache, initialHash: window.location.hash },
@@ -25,6 +26,7 @@ function createApp(cache: Cache) {
 
 export default app;
 
+/*
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
     .register("./service-worker.js", { scope: "./", type: "module" })
@@ -67,6 +69,7 @@ if ("serviceWorker" in navigator) {
   console.error("Service worker is not available - will start with no caching");
   createApp(null);
 }
+*/
 
 function reportWorkerStatus() {
   if (navigator.serviceWorker?.controller) {
@@ -84,3 +87,5 @@ if ("storage" in navigator) {
     .estimate()
     .then((estimate) => console.debug("Available storage:", estimate));
 }
+
+createApp(null);

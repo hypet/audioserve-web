@@ -1,12 +1,9 @@
 import { get } from "svelte/store";
 import {
   apiConfig,
-  config,
   selectedCollection,
-  selectedTranscodingDetails,
 } from "../state/stores";
-import { TranscodingCode } from "./enums";
-import type { AudioFileExt, TranscodingDetail } from "./types";
+import type { AudioFileExt } from "./types";
 
 export interface PlayItemParams {
   file: AudioFileExt;
@@ -26,13 +23,9 @@ export class PlayItem {
   startPlay: boolean;
   cached: boolean;
   time?: number;
-  transcoded: boolean;
-  transcoding?: TranscodingCode;
   mime: string;
 
   constructor(params: PlayItemParams) {
-    // this.checkNeedsTranscoding(params.file);
-    console.log("params: ", params);
     this.id = params.file.id;
     this.url = this.constructURLWithId(params.file.id, params.collection);
     this.duration = params.file.meta?.duration;
@@ -45,52 +38,29 @@ export class PlayItem {
     this.mime = params.file.mime;
   }
 
-  private checkNeedsTranscoding(file: AudioFileExt) {
-    const currentTranscoding = get(selectedTranscodingDetails);
-    const cfg = get(config);
-    if (cfg.alwaysTranscode && cfg.alwaysTranscode.indexOf(file.mime) >= 0) {
-      this.transcoding =
-        currentTranscoding.code != TranscodingCode.None
-          ? TranscodingCode.Medium
-          : currentTranscoding.code;
-      this.transcoded = true;
-      return;
-    }
-    const tolerance = cfg.transcodingTolerance;
-    if (
-      currentTranscoding.code != TranscodingCode.None &&
-      currentTranscoding.bitrate > 0 &&
-      file.meta &&
-      file.meta.bitrate > currentTranscoding.bitrate * (1 + tolerance)
-    ) {
-      this.transcoding = currentTranscoding.code;
-      this.transcoded = true;
-    }
-  }
-
-  private constructURL(file: AudioFileExt, collection?: number) {
-    const basePath = get(apiConfig).basePath;
-    const col = collection ?? get(selectedCollection);
-    let url = basePath + "/" + col + "/audio/" + encodeURIComponent(file.path);
-    const query = new URLSearchParams();
-    if (this.transcoding) {
-      query.append("trans", this.transcoding);
-    }
-    const queryString = query.toString();
-    if (queryString) {
-      url += "?" + queryString;
-    }
-    return url;
-  }
+    // private constructURL(file: AudioFileExt, collection?: number) {
+  //   const basePath = get(apiConfig).basePath;
+  //   const col = collection ?? get(selectedCollection);
+  //   let url = basePath + "/" + col + "/audio/" + encodeURIComponent(file.path);
+  //   const query = new URLSearchParams();
+  //   if (this.transcoding) {
+  //     query.append("trans", this.transcoding);
+  //   }
+  //   const queryString = query.toString();
+  //   if (queryString) {
+  //     url += "?" + queryString;
+  //   }
+  //   return url;
+  // }
 
   private constructURLWithId(track_id: number, collection?: number) {
     const basePath = get(apiConfig).basePath;
     const col = collection ?? get(selectedCollection);
     let url = basePath + "/" + col + "/media/" + track_id;
     const query = new URLSearchParams();
-    if (this.transcoding) {
-      query.append("trans", this.transcoding);
-    }
+    // if (this.transcoding) {
+    //   query.append("trans", this.transcoding);
+    // }
     const queryString = query.toString();
     if (queryString) {
       url += "?" + queryString;

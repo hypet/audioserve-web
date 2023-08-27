@@ -1,19 +1,16 @@
 <script lang="ts">
-  import { getContext, onDestroy, onMount } from "svelte";
+  import { getContext, onDestroy } from "svelte";
   import type { Unsubscriber } from "svelte/store";
   import { EventType } from "../cache";
   import type { Cache, CacheEvent } from "../cache";
   import ContinuePlay from "svelte-material-icons/PlayCircleOutline.svelte";
   import SortNameIcon from "svelte-material-icons/SortAlphabeticalAscending.svelte";
   import SortTimeIcon from "svelte-material-icons/SortClockAscendingOutline.svelte";
-  import DownloadFolderIcon from "svelte-material-icons/BriefcaseDownloadOutline.svelte";
-  import ClockIcon from "svelte-material-icons/ClockOutline.svelte";
 
-  import type { AudioFile, PositionShort, Subfolder } from "../client";
+  import type { PositionShort, Subfolder } from "../client";
   import {
     apiConfig,
     colApi,
-    collections,
     currentFolder,
     group,
     isAuthenticated,
@@ -29,7 +26,6 @@
   import {
     nonEmpty,
     sorted,
-    splitExtInName,
     splitPath,
     splitUrl,
   } from "../util";
@@ -73,7 +69,7 @@
   let subfolders: Subfolder[] = [];
   let files: Map<number, AudioFileExt> = new Map<number, AudioFileExt>();
   let dirs: Map<string, AudioFileExt[]> = new Map<string, AudioFileExt[]>();
-  export const getFiles = () => files;
+  // export const getFiles = () => files;
   let folderPath: string | undefined;
   let isCollapsed = false;
   let searchQuery: string | undefined;
@@ -136,107 +132,22 @@
     }
   }
 
-  // async function loadFolder(folder: string) {
-  //   try {
-  //     console.debug("loadFolder");
-  //     const audioFolder = await $colApi.colIdFolderPathGet({
-  //       colId: $selectedCollection,
-  //       path: folder,
-  //       group: $group || undefined,
-  //     });
-  //     const cachedPaths = await cache?.getCachedPaths(
-  //       $selectedCollection,
-  //       folder
-  //     );
-  //     console.debug("Cached files for this folder", cachedPaths);
-
-  //     files =
-  //       cachedPaths && cachedPaths.length > 0
-  //         ? audioFolder.files!.map((file: AudioFileExt) => {
-  //             if (cachedPaths.indexOf(file.path) >= 0) {
-  //               file.cached = true;
-  //             }
-  //             return file;
-  //           })
-  //         : audioFolder.files!;
-  //     subfolders = sortSubfolders(audioFolder.subfolders!);
-  //     localStorage.setItem(StorageKeys.LAST_FOLDER, folder);
-  //     sharedPosition = audioFolder.position;
-  //     sharePositionDisplayName = null;
-  //     if (sharedPosition) {
-  //       files.forEach((f) => {
-  //         if (f.path === sharedPosition.path) {
-  //           sharePositionDisplayName = splitExtInName(f).baseName;
-  //         }
-  //       });
-  //     }
-
-  //     folderTime = audioFolder.totalTime;
-  //     folderTags = audioFolder.tags;
-  //     descriptionPath = audioFolder.description?.path;
-  //     coverPath = audioFolder.cover?.path;
-
-  //     // restore last played file, if possible
-  //     if (!$playItem && folderPath === undefined) {
-  //       const prevFile = localStorage.getItem(StorageKeys.LAST_FILE);
-  //       if (prevFile) {
-  //         console.debug(
-  //           `Can try to play ${prevFile} in folder ${$currentFolder} in collection ${$selectedCollection}`
-  //         );
-  //         const position = files.findIndex((f) => f.path === prevFile);
-  //         if (position >= 0) {
-  //           let time: number | undefined;
-  //           try {
-  //             time = parseFloat(
-  //               localStorage.getItem(StorageKeys.LAST_POSITION)
-  //             );
-  //           } catch (e) {
-  //             console.warn("Invalid last position", e);
-  //           }
-  //           startPlaying(position, false, time);
-  //         }
-  //       }
-  //     }
-
-  //     folderPath = folder;
-  //     isCollapsed = !audioFolder.isFile && audioFolder.isCollapsed;
-  //   } catch (resp) {
-  //     console.error("Cannot load folder", resp);
-  //     if (resp.status === 404) {
-  //       $currentFolder = { value: "", type: FolderType.REGULAR };
-  //     } else if (resp.status === 401) {
-  //       $isAuthenticated = false;
-  //     } else {
-  //       window.alert(`Failed to load folder ${$currentFolder}`);
-  //     }
-  //   } finally {
-  //     searchQuery = undefined;
-  //   }
-  // }
-
   export async function loadAll() {
     try {
-      console.debug("loadAll");
+      console.log("loadAll");
       const folder = "";
       const audioFolder = await $colApi.colIdAll({
         colId: $selectedCollection,
       });
 
       files = audioFolder.files!;
-      audioFolder.files.forEach((f: AudioFileExt) => {
+      dirs = new Map<string, AudioFileExt[]>();
+      audioFolder.files!.forEach((f: AudioFileExt) => {
           const filesInDir = dirs.get(f.parent_dir) || [];
           filesInDir.push(f);
           dirs.set(f.parent_dir, filesInDir);
       });
       console.log("dirs: ", dirs);
-        // cachedPaths && cachedPaths.length > 0
-        //   ? audioFolder.files!.map((file: AudioFileExt) => {
-        //       if (cachedPaths.indexOf(file.path) >= 0) {
-        //         file.cached = true;
-        //       }
-        //       return file;
-        //     })
-        //   : audioFolder.files!;
       subfolders = sortSubfolders(audioFolder.subfolders!);
       localStorage.setItem(StorageKeys.LAST_FOLDER, folder);
 
@@ -264,11 +175,6 @@
         $currentFolder = { value: "", type: FolderType.REGULAR };
       } else if (resp.status === 401) {
         $isAuthenticated = false;
-      // } else {
-      //   window.alert("Failed to load folder, staying on current");
-      //   if (folderPath) {
-      //     $currentFolder = { type: FolderType.REGULAR, value: "" };
-      //   }
       }
     } finally {
       searchQuery = undefined;
@@ -319,13 +225,6 @@
         { collection: $selectedCollection, track_id: file.id }
       );
     webSocket.send(JSON.stringify(playTrack));
-    // $playList = {
-    //   files,
-    //   collection: $selectedCollection,
-    //   folder: $currentFolder.value,
-    //   totalTime: folderTime,
-    //   hasImage: coverPath && coverPath.length > 0,
-    // };
     $playItem = item;
     console.debug("startPlaying end");
   }
@@ -370,6 +269,7 @@
   }
 
   $: if ($currentFolder != undefined) {
+    console.log("Browser loadAll...");
     let done: Promise<void>;
     const scrollTo = $currentFolder.scrollTo;
     if ($currentFolder.type === FolderType.REGULAR) {
@@ -396,31 +296,6 @@
     if (item) {
       const cached = evt.kind === EventType.FileCached;
       console.debug("File cached", item);
-      const { collection, path } = splitUrl(item.originalUrl, globalPathPrefix);
-
-      // update folder
-      if (collection === $selectedCollection) {
-        // const position = files.findIndex((f) => f.path == path);
-        // if (position >= 0) {
-        //   let f = files[position];
-        //   f.cached = cached;
-        //   files[position] = f;
-        // }
-      }
-      // update playlist
-      if ($playList) {
-        const { folder, file } = splitPath(path);
-        if ($playList.collection == collection && $playList.folder == folder) {
-          // playList.update((pl) => {
-            // const position = pl.files.findIndex((f) => f.path == path);
-            // console.debug("position:", position);
-            // if (position >= 0) {
-            //   pl.files[position].cached = cached;
-            // }
-          //   return pl;
-          // });
-        }
-      }
     }
   }
 
@@ -433,7 +308,6 @@
   const updateScroll = () => scrollDebouncer.debounce();
   $: container?.addEventListener("scroll", updateScroll);
 
-  onMount(async () => {});
   onDestroy(() => {
     unsubsribe.forEach((u) => u());
     cache?.removeListener(handleCacheEvent);
@@ -484,36 +358,31 @@
         </ul>
       </details>
     {/if}
-    {#if files.size > 0}
-      <details open role="region" aria-label="Files">
-        <summary
-          >Files
-          <Badge value={files.size} />
-          <span class="files-duration"
-            ><ClockIcon />
-            <span>{formatTime(folderTime)}</span></span
-          >
-          {#if $collections && $collections.folderDownload}
-            <a href={generateDownloadPath()} target="_self"
-              ><span class="summary-icons" aria-label="Download"
-                ><DownloadFolderIcon /></span
-              ></a
-            >
-          {/if}
+    {#if dirs.size > 0}
+      {#each sorted(Array.from(dirs.keys())) as dir}
+      <details open role="region" aria-label="Files" class="details-album">
+        <summary>{dir}<Badge value={dirs.get(dir).length} />
+          <!-- <span class="files-duration"><ClockIcon />
+            <span>{formatTime(folderTime)}</span>
+          </span> -->
+          <!-- {#if $collections && $collections.folderDownload}
+            <a href={generateDownloadPath()} target="_self"><span class="summary-icons" aria-label="Download"><DownloadFolderIcon /></span></a>
+          {/if} -->
         </summary>
         <ul class="items-list">
-          {#each [...files] as [key, file]}
+          {#each sorted(dirs.get(dir)) as file}
             <FileItem
               {file}
-              position={key}
+              position={file.id}
               {container}
               playFunction={startPlaying}
             />
           {/each}
         </ul>
       </details>
+      {/each}
     {/if}
-  </div>
+      </div>
   {#if $currentFolder && $currentFolder.type === FolderType.REGULAR}
     <div class="browser-sidebar">
       {#if sharedPosition && sharePositionDisplayName}
@@ -605,9 +474,12 @@
       padding-right: 0;
     }
   }
+  .details-album {
+    --spacing: 0.2rem;
+  }
   summary {
     font-weight: bold;
-    font-size: 1.5rem;
-    line-height: 1.5rem;
+    font-size: 1.0rem;
+    line-height: 1.0rem;
   }
 </style>

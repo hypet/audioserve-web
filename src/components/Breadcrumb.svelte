@@ -20,10 +20,11 @@
   }
 
   function goHome() {
+    console.debug("goHome");
     $currentFolder = { value: "", type: FolderType.REGULAR };
   }
 
-  function goAll() {
+  async function goAll() {
     console.debug("goAll");
     $currentFolder = { value: "", type: FolderType.REGULAR };
   }

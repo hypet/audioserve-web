@@ -10,6 +10,4 @@ export * from './PositionShort';
 export * from './SearchResult';
 export * from './SharedSecret';
 export * from './Subfolder';
-export * from './Transcoding';
-export * from './TranscodingsInfo';
 export * from './TypedFile';

@@ -1,53 +1,47 @@
-# New audioserve web client 
-Audioserve server for this client is here: https://github.com/hypet/audioserve.
-  
-Main motivation is to try new technologies, so [Svelte](https://svelte.dev) and [TypeScript](https://www.typescriptlang.org/) are used as main languages and [PWA](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps) technologies are used.
+# Svelte + TS + Vite
 
-Key focus is on efficient caching of audio files, something similar to what is available in [Android client](https://github.com/izderadicka/audioserve-android) - so Service Worker and CacheStorage are used.
+This template should help get you started developing with Svelte and TypeScript in Vite.
 
-My idea is that this application should fully replace mobile (Android) client in future.
+## Recommended IDE Setup
 
+[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
 
-For now works better in Chrome/Chromium, but Firefox should be also fine most of the time (ServiceWorker seems to be more "stable" in Chrome). Apple (Safari) users should change transcoding configuration on server to `aac-in-adts`, see [audioserve README](https://github.com/izderadicka/audioserve#alternative-transcodings-and-transcoding-configuration-for-apple-users) and also should add `audio/ogg` to always transcoded setting in client.
+## Need an official Svelte framework?
 
-I'm definitely **interested in feedback** so you can log issues on this project.
+Check out [SvelteKit](https://github.com/sveltejs/kit#readme), which is also powered by Vite. Deploy anywhere with its serverless-first approach and adapt to various platforms, with out of the box support for TypeScript, SCSS, and Less, and easily-added support for mdsvex, GraphQL, PostCSS, Tailwind CSS, and more.
 
-## Known limitations 
+## Technical considerations
 
-Comparing with native Android app there are some limitations, which are given by restrictions of mobile browsers and I do not see any possible workaround:
-1. Sensors API works only for active/visible browser window, thus for extension of sleep time by shaking you have to unlock screen first - thus it is not so useful.
-2. MediaSession on mobile browser behaves differently from native app, thus media notification is not so useful and behaves inconsistently. This will require bit more research.
-3. Javascript is paused on inactive/background windows, from what I tried it's kept running only, if audio is playing. This limits possibility to cache ahead audio files, when browser in in background and not playing. Again this will require more research. 
+**Why use this over SvelteKit?**
 
-Service workers work only in secure context and same origin (or localhost). Thus caching is limited only to this setup.
+- It brings its own routing solution which might not be preferable for some users.
+- It is first and foremost a framework that just happens to use Vite under the hood, not a Vite app.
 
+This template contains as little as possible to get started with Vite + TypeScript + Svelte, while taking into account the developer experience with regards to HMR and intellisense. It demonstrates capabilities on par with the other `create-vite` templates and is a good starting point for beginners dipping their toes into a Vite + Svelte project.
 
-## How to use?
+Should you later need the extended capabilities and extensibility provided by SvelteKit, the template has been structured similarly to SvelteKit so that it is easy to migrate.
 
-You will need audioserve server running somewhere with this client. There are multiple options:
+**Why `global.d.ts` instead of `compilerOptions.types` inside `jsconfig.json` or `tsconfig.json`?**
 
-- use `izderadicka/audioserve` image from dockerhub. New client is already there.
-  
-- to have lastest verion clone this project and build client:
+Setting `compilerOptions.types` shuts out all other types not explicitly listed in the configuration. Using triple-slash references keeps the default TypeScript setting of accepting type information from the entire workspace, while also adding `svelte` and `vite/client` type information.
 
+**Why include `.vscode/extensions.json`?**
+
+Other templates indirectly recommend extensions via the README, but this file allows VS Code to prompt the user to install the recommended extension upon opening the project.
+
+**Why enable `allowJs` in the TS template?**
+
+While `allowJs: false` would indeed prevent the use of `.js` files in the project, it does not prevent the use of JavaScript syntax in `.svelte` files. In addition, it would force `checkJs: false`, bringing the worst of both worlds: not being able to guarantee the entire codebase is TypeScript, and also having worse typechecking for the existing JavaScript. In addition, there are valid use cases in which a mixed codebase may be relevant.
+
+**Why is HMR not preserving my local component state?**
+
+HMR state preservation comes with a number of gotchas! It has been disabled by default in both `svelte-hmr` and `@sveltejs/vite-plugin-svelte` due to its often surprising behavior. You can read the details [here](https://github.com/rixo/svelte-hmr#svelte-hmr).
+
+If you have state that's important to retain within a component, consider creating an external store which would not be replaced by HMR.
+
+```ts
+// store.ts
+// An extremely simple external store
+import { writable } from 'svelte/store'
+export default writable(0)
 ```
-npm install && npm run build && npm run build-sw
-```
-then either copy and replace existing web client in client directory of audioserve, or use argument `--client-dir` to use directory with built client (built code is in `public` subdirectory).
-
-
-## License 
-MIT
-
-## Generated code for src/client
-
-Code for client API is generated by [OpenApi Generator](https://github.com/OpenAPITools/openapi-generator) using following command:
-
-```
-java -jar openapi-generator-cli.jar generate -i ~/workspace/audioserve/docs/audioserve-api-v1.yaml -g typescript-fetch -o ./client --additional-properties=typescriptThreePlus=true
-```
-
-However there is a bug in generated code (because endpoint /positions/{group}/{colId}/{path} can return either position or array of positions, which is not handled correctly by generator). So had to provide manual fix for PositionsApi.ts line 111
-
-
-

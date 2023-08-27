@@ -2,7 +2,8 @@
   import CellphoneLink from "svelte-material-icons/CellphoneLink.svelte";
   import { createEventDispatcher } from "svelte";
   import { clickOutside } from "../util/dom";
-  import { formatWSMessage, WSMessage } from "../types/types";
+  import type { WSMessage } from "../types/types";
+  import { formatWSMessage } from "../types/types";
   import { WSMessageOutType } from "../types/enums";
   import { webSocket, deviceId, activeDeviceId, devicesOnline } from "../state/stores";
   const dispatch = createEventDispatcher();

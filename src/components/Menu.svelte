@@ -1,15 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, getContext } from "svelte";
-  import type { Transcoding } from "../client";
-  import { group, selectedTranscoding, transcodings } from "../state/stores";
+  import { group } from "../state/stores";
   import Menu from "svelte-material-icons/Menu.svelte";
-  import {
-    StorageKeys,
-    TranscodingCode,
-    transcodingCodeToName,
-    transcodingNameToCode,
-  } from "../types/enums";
-  import type { TranscodingName } from "../types/enums";
   import { capitalize } from "../util";
   import { otherTheme } from "../util/browser";
   import { clickOutside } from "../util/dom";
@@ -18,30 +10,6 @@
 
   let menuVisible = false;
   let menuButton: HTMLAnchorElement;
-  let transcodingNames: TranscodingName[] = [];
-
-  $: if ($transcodings) {
-    transcodingNames = ["None", "Low", "Medium", "High"];
-  }
-
-  $: transcoding = transcodingCodeToName($selectedTranscoding);
-
-  function updateTranscoding() {
-    $selectedTranscoding = transcodingNameToCode(transcoding);
-    localStorage.setItem(StorageKeys.TRANSCODING, $selectedTranscoding);
-    menuVisible = false;
-    console.debug("Transcoding changed to ", $selectedTranscoding, transcoding);
-  }
-
-  function getBitrate(transcodingName: TranscodingName) {
-    if (transcodingName === "None" || !$transcodings) {
-      return "";
-    } else {
-      const key = transcodingName.toLocaleLowerCase();
-      const transcodingInfo: Transcoding = $transcodings[key];
-      return `(${transcodingInfo.bitrate} kbps)`;
-    }
-  }
 
   function menuClick(evt) {
     menuVisible = false;
@@ -90,27 +58,6 @@
                 on:click|preventDefault={menuClick}
                 >{capitalize(otherTheme())} Theme</a
               >
-            </li>
-            <li>
-              <details>
-                <summary>Transcoding ({transcoding})</summary>
-                <ul>
-                  {#each transcodingNames as transcodingName}
-                    <li class="option">
-                      <input
-                        type="radio"
-                        name="transcoding"
-                        value={transcodingName}
-                        id={"radio-" + transcodingName}
-                        bind:group={transcoding}
-                        on:change={updateTranscoding}
-                      /><label for={"radio-" + transcodingName}
-                        >{transcodingName} {getBitrate(transcodingName)}</label
-                      >
-                    </li>
-                  {/each}
-                </ul>
-              </details>
             </li>
             <li>
               <a

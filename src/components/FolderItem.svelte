@@ -2,7 +2,7 @@
   import { beforeUpdate } from "svelte";
 
   import type { Subfolder } from "../client";
-  import { selectedCollection, apiConfig, config } from "../state/stores";
+  import { config } from "../state/stores";
   import { splitPath } from "../util";
   import type { Observer } from "../util/intersect";
   import FolderIcon from "./FolderIcon.svelte";

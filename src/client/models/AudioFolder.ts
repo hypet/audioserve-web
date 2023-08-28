@@ -51,12 +51,6 @@ export interface AudioFolder {
      */
     isFile?: boolean;
     /**
-     * Folder contains files from CD subfolders, structure is collapsed
-     * @type {boolean}
-     * @memberof AudioFolder
-     */
-    isCollapsed?: boolean;
-    /**
      * last modification timestamp (unix time in miliseconds)
      * @type {number}
      * @memberof AudioFolder
@@ -68,12 +62,6 @@ export interface AudioFolder {
      * @memberof AudioFolder
      */
     totalTime?: number;
-    /**
-     * 
-     * @type {Array<Subfolder>}
-     * @memberof AudioFolder
-     */
-    subfolders?: Array<Subfolder>;
     /**
      * 
      * @type {Array<AudioFile>}
@@ -98,12 +86,6 @@ export interface AudioFolder {
      * @memberof AudioFolder
      */
     tags?: object | null;
-    /**
-     * 
-     * @type {PositionShort}
-     * @memberof AudioFolder
-     */
-    position?: PositionShort | null;
 }
 
 /**
@@ -126,14 +108,11 @@ export function AudioFolderFromJSONTyped(json: any, ignoreDiscriminator: boolean
     return {
         
         'isFile': !exists(json, 'is_file') ? undefined : json['is_file'],
-        'isCollapsed': !exists(json, 'is_collapsed') ? undefined : json['is_collapsed'],
         'modified': !exists(json, 'modified') ? undefined : json['modified'],
         'totalTime': !exists(json, 'total_time') ? undefined : json['total_time'],
-        'subfolders': !exists(json, 'subfolders') ? undefined : ((json['subfolders'] as Array<any>).map(SubfolderFromJSON)),
         'files': !exists(json, 'files') ? undefined : new Map((json['files'] as Array<any>).map(AudioFileFromJSON)),
         'cover': !exists(json, 'cover') ? undefined : TypedFileFromJSON(json['cover']),
         'description': !exists(json, 'description') ? undefined : TypedFileFromJSON(json['description']),
         'tags': !exists(json, 'tags') ? undefined : json['tags'],
-        'position': !exists(json, 'position') ? undefined : PositionShortFromJSON(json['position']),
     };
 }

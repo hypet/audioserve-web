@@ -117,7 +117,7 @@ ul.items-list li:hover {
 
 .item-header[role="link"] {
   all: inherit;
-  font-size: 1.25rem;
+  font-size: 1.0rem;
   font-weight: bold;
   color: var(--h4-color);
 }

@@ -26,8 +26,6 @@
   import {
     nonEmpty,
     sorted,
-    splitPath,
-    splitUrl,
   } from "../util";
   import FileItem from "./FileItem.svelte";
   import FolderItem from "./FolderItem.svelte";
@@ -66,12 +64,10 @@
     }
   };
 
-  let subfolders: Subfolder[] = [];
   let files: Map<number, AudioFileExt> = new Map<number, AudioFileExt>();
   let dirs: Map<string, AudioFileExt[]> = new Map<string, AudioFileExt[]>();
   // export const getFiles = () => files;
   let folderPath: string | undefined;
-  let isCollapsed = false;
   let searchQuery: string | undefined;
   let folderTime: number;
   let folderTags: object = null;
@@ -82,22 +78,7 @@
   let coverPath: string;
 
   let sortTime = false;
-  let collator = new window.Intl.Collator(navigator.language);
-  const toggleSubfoldersSort = () => {
-    sortTime = !sortTime;
-    subfolders = sortSubfolders(subfolders);
-  };
-
-  function sortSubfolders(subs: Subfolder[]) {
-    return subs.sort((a, b) => {
-      if (sortTime) {
-        return a.modified < b.modified ? 1 : a.modified > b.modified ? -1 : 0;
-      } else {
-        return collator.compare(a.name, b.name);
-      }
-    });
-  }
-
+  
   async function searchFor(query: string) {
     try {
       const result = await $colApi.colIdSearchGet({
@@ -106,7 +87,6 @@
         group: $group,
       });
 
-      subfolders = result.subfolders;
       // files = [];
 
       searchQuery = query;
@@ -114,7 +94,6 @@
       // Other properties are not relevant and should be reset
       sharedPosition = undefined;
       folderPath = undefined;
-      isCollapsed = false;
       folderTime = undefined;
       folderTags = undefined;
       descriptionPath = undefined;
@@ -148,7 +127,6 @@
           dirs.set(f.parent_dir, filesInDir);
       });
       console.log("dirs: ", dirs);
-      subfolders = sortSubfolders(audioFolder.subfolders!);
       localStorage.setItem(StorageKeys.LAST_FOLDER, folder);
 
       folderTime = audioFolder.totalTime;
@@ -157,7 +135,6 @@
       coverPath = audioFolder.cover?.path;
 
       folderPath = folder;
-      isCollapsed = !audioFolder.isFile && audioFolder.isCollapsed;
 
       $playList = {
         files,
@@ -315,53 +292,23 @@
     observer.close();
   });
 
-  function generateDownloadPath(): string {
-    return (
-      $apiConfig.basePath +
-      `/${$selectedCollection}/download/${encodeURIComponent(folderPath)}` +
-      (isCollapsed ? "?collapsed" : "")
-    );
-  }
+  // function generateDownloadPath(): string {
+  //   return (
+  //     $apiConfig.basePath +
+  //     `/${$selectedCollection}/download/${encodeURIComponent(folderPath)}` +
+  //     (isCollapsed ? "?collapsed" : "")
+  //   );
+  // }
 </script>
 
 <div id="browser">
   <div class="main-browser-panel">
-    {#if subfolders.length > 0}
-      <details open role="region" aria-label="Subfolders">
-        <summary
-          >Subfolders
-          <Badge value={subfolders.length} />
-          <span
-            class="summary-icons button-like"
-            on:click|stopPropagation|preventDefault={toggleSubfoldersSort}
-            aria-label="Sort by {sortTime ? 'Time' : 'Name'}"
-            role="button"
-          >
-            {#if sortTime}
-              <SortTimeIcon />
-            {:else}
-              <SortNameIcon />
-            {/if}
-          </span>
-        </summary>
-        <ul class="items-list">
-          {#each subfolders as fld}
-            <li on:click={navigateTo(fld.path)}>
-              <FolderItem
-                {observer}
-                subfolder={fld}
-                extended={$currentFolder.type != FolderType.REGULAR}
-                finished={fld.finished}
-              />
-            </li>
-          {/each}
-        </ul>
-      </details>
-    {/if}
     {#if dirs.size > 0}
       {#each sorted(Array.from(dirs.keys())) as dir}
+      {@const fileList = dirs.get(dir)}
+      {#if fileList && fileList.length > 0}
       <details open role="region" aria-label="Files" class="details-album">
-        <summary>{dir}<Badge value={dirs.get(dir).length} />
+        <summary>{dir}<Badge value={fileList.length} />
           <!-- <span class="files-duration"><ClockIcon />
             <span>{formatTime(folderTime)}</span>
           </span> -->
@@ -369,17 +316,18 @@
             <a href={generateDownloadPath()} target="_self"><span class="summary-icons" aria-label="Download"><DownloadFolderIcon /></span></a>
           {/if} -->
         </summary>
-        <ul class="items-list">
-          {#each sorted(dirs.get(dir)) as file}
-            <FileItem
-              {file}
-              position={file.id}
-              {container}
-              playFunction={startPlaying}
-            />
-          {/each}
-        </ul>
-      </details>
+          <ul class="items-list">
+            {#each sorted(fileList) as file}
+              <FileItem
+                {file}
+                position={file.id}
+                {container}
+                playFunction={startPlaying}
+              />
+            {/each}
+          </ul>
+        </details>
+        {/if}
       {/each}
     {/if}
       </div>

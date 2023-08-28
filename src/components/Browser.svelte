@@ -317,7 +317,7 @@
           {/if} -->
         </summary>
           <ul class="items-list">
-            {#each sorted(fileList) as file}
+            {#each fileList.sort((a, b) => (a.name < b.name ? -1 : 1)) as file}
               <FileItem
                 {file}
                 position={file.id}

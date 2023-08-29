@@ -110,114 +110,142 @@ playList.subscribe((value) => currentPlayList = value);
 devicesOnline.subscribe((value) => devicesOnlineVal = value);
 activeDeviceId.subscribe((value) => activeDeviceIdVal = value);
 
-export let webSocket: WebSocket = new WebSocket(baseWsUrl(true, 3000) + "/ws");
-webSocket.addEventListener("open", () => {
-  console.log("WebSocket opened");
-  let regDeviceReq: WSMessage = formatWSMessage(
-    WSMessageOutType.RegisterDevice,
-    { name: deviceName() }
-  );
-  webSocket.send(JSON.stringify(regDeviceReq));
-});
-webSocket.addEventListener("error", (err) => {
-  console.error(`Web socket error`, err);
-});
-webSocket.addEventListener("close", (close) => {
-  console.debug("Web socket close", close);
-});
-webSocket.addEventListener("message", evt => {
-  console.debug("evt: ", evt);
-  const wsMsg: WSMessage = JSON.parse(evt.data);
-  const msgType = Object.keys(wsMsg)[0];
-  const event = wsMsg[msgType];
-  const typedMsgType: WSMessageInType = WSMessageInType[msgType as keyof typeof WSMessageInType];
-  switch (typedMsgType) {
-    case WSMessageInType.RewindToEvent: {
-      const time: number = event["time"];
-      if (time > 0) {
-        console.log("RewindTo: ", time);
-        rewindToValue.set(time);
-      }
-      break;
-    }
-    case WSMessageInType.CurrentPosEvent: {
-      const id: number = event["track_id"];
-      const time: number = event["time"];
-      if (!playList) return;
+let webSocket: WebSocket; 
 
-      if (!playingItem || playingItem.id !== id) {
-        console.log("CurrentPosEvent id=", id);
-        const file = currentPlayList.files.get(id);
-        const startPlay = false;
+function connectWebSocket() {
+  webSocket = new WebSocket(baseWsUrl(true, 3000) + "/ws");
+  webSocket.addEventListener("open", () => {
+    console.log("WebSocket opened");
+    let regDeviceReq: WSMessage = formatWSMessage(
+      WSMessageOutType.RegisterDevice,
+      { name: deviceName() }
+    );
+    webSocket.send(JSON.stringify(regDeviceReq));
+  });
+  webSocket.addEventListener("error", (err) => {
+    console.error(`Web socket error`, err);
+  });
+  webSocket.addEventListener("close", (close) => {
+    console.debug("Web socket close", close);
+  });
+  webSocket.addEventListener("message", evt => {
+    console.debug("evt: ", evt);
+    const wsMsg: WSMessage = JSON.parse(evt.data);
+    const msgType = Object.keys(wsMsg)[0];
+    const event = wsMsg[msgType];
+    const typedMsgType: WSMessageInType = WSMessageInType[msgType as keyof typeof WSMessageInType];
+    switch (typedMsgType) {
+      case WSMessageInType.RewindToEvent: {
+        const time: number = event["time"];
+        if (time > 0) {
+          console.log("RewindTo: ", time);
+          rewindToValue.set(time);
+        }
+        break;
+      }
+      case WSMessageInType.CurrentPosEvent: {
+        const id: number = event["track_id"];
+        const time: number = event["time"];
+        if (!playList) return;
+
+        if (!playingItem || playingItem.id !== id) {
+          console.log("CurrentPosEvent id=", id);
+          const file = currentPlayList.files.get(id);
+          const startPlay = false;
+          const item = new PlayItem({
+            file,
+            startPlay,
+            time,
+          });
+          playItem.set(item);
+          selectedCollection.set(event["collection"]);
+        } else {
+          playingItem.time = time;
+        }
+        
+        if (!isPlayingState) {
+          console.log("isPlayingState: ", isPlayingState);
+          isPlaying.set(true);
+        }
+        progressValue.set(time);
+        break;
+      }
+      case WSMessageInType.PauseEvent: 
+        isPlaying.set(false);
+        console.log("isPlaying: ", isPlaying);
+        break;
+      case WSMessageInType.ResumeEvent:
+        isPlaying.set(true);
+        break;
+      case WSMessageInType.PlayTrackEvent: {
+        const trackId = event["track_id"];
+        isPlaying.set(false);
+        const file = currentPlayList.files.get(trackId);
+        const time = 0.0;
+        const startPlay = true;
+        selectedCollection.set(event["collection"]);
         const item = new PlayItem({
           file,
           startPlay,
           time,
         });
+
         playItem.set(item);
-        selectedCollection.set(event["collection"]);
+        break;
+      }
+      case WSMessageInType.VolumeChangeEvent: {
+        volumeValue.set(event["value"]);
+        break;
+      }
+      case WSMessageInType.DevicesOnlineEvent: {
+        devicesOnline.set(event["devices"]);
+        for (let device of devicesOnlineVal) {
+          if (device.active) {
+              activeDeviceId.set(device.id);
+              break;
+          }
+        };
+
+        console.log("Devices: ", devicesOnlineVal);
+        console.log("Selected device: " + activeDeviceIdVal);
+
+        break;
+      }
+      case WSMessageInType.RegisterDeviceEvent: 
+        console.debug("RegisterDeviceEvent");
+        deviceId.set(event["device_id"]);
+        break;
+      case WSMessageInType.MakeDeviceActiveEvent:
+        activeDeviceId.set(event["device_id"]);
+        break;
+      case WSMessageInType.SwitchShuffleEvent:
+        const mode = event["mode"];
+        activeShuffleMode.set(mode);
+        break;
+    }
+  });
+}
+
+connectWebSocket();
+
+export function sendWsMessage(msg: WSMessage) {
+  const json = JSON.stringify(msg);
+  waitForSocketConnection(function() {
+    webSocket.send(json);
+  });
+}
+
+function waitForSocketConnection(callback: Function){
+  setTimeout(
+    function () {
+      if (webSocket.readyState === webSocket.OPEN) {
+          console.log("Connection is ready")
+          if (callback != null){
+              callback();
+          }
       } else {
-        playingItem.time = time;
+          console.log("wait for connection...")
+          waitForSocketConnection(callback);
       }
-      
-      if (!isPlayingState) {
-        console.log("isPlayingState: ", isPlayingState);
-        isPlaying.set(true);
-      }
-      progressValue.set(time);
-      break;
-    }
-    case WSMessageInType.PauseEvent: 
-      isPlaying.set(false);
-      console.log("isPlaying: ", isPlaying);
-      break;
-    case WSMessageInType.ResumeEvent:
-      isPlaying.set(true);
-      break;
-    case WSMessageInType.PlayTrackEvent: {
-      const trackId = event["track_id"];
-      isPlaying.set(false);
-      const file = currentPlayList.files.get(trackId);
-      const time = 0.0;
-      const startPlay = true;
-      selectedCollection.set(event["collection"]);
-      const item = new PlayItem({
-        file,
-        startPlay,
-        time,
-      });
-
-      playItem.set(item);
-      break;
-    }
-    case WSMessageInType.VolumeChangeEvent: {
-      volumeValue.set(event["value"]);
-      break;
-    }
-    case WSMessageInType.DevicesOnlineEvent: {
-      devicesOnline.set(event["devices"]);
-      for (let device of devicesOnlineVal) {
-        if (device.active) {
-            activeDeviceId.set(device.id);
-            break;
-        }
-      };
-
-      console.log("Devices: ", devicesOnlineVal);
-      console.log("Selected device: " + activeDeviceIdVal);
-
-      break;
-    }
-    case WSMessageInType.RegisterDeviceEvent: 
-      console.debug("RegisterDeviceEvent");
-      deviceId.set(event["device_id"]);
-      break;
-    case WSMessageInType.MakeDeviceActiveEvent:
-      activeDeviceId.set(event["device_id"]);
-      break;
-    case WSMessageInType.SwitchShuffleEvent:
-      const mode = event["mode"];
-      activeShuffleMode.set(mode);
-      break;
-  }
-});
+    }, 500);
+}

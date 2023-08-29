@@ -5,7 +5,7 @@
   import type { WSMessage } from "../types/types";
   import { formatWSMessage } from "../types/types";
   import { WSMessageOutType } from "../types/enums";
-  import { webSocket, deviceId, activeDeviceId, devicesOnline } from "../state/stores";
+  import { sendWsMessage, deviceId, activeDeviceId, devicesOnline } from "../state/stores";
   const dispatch = createEventDispatcher();
 
   let deviceListVisible = false;
@@ -13,7 +13,7 @@
 
   function updateDeviceList() {
     let makeDeviceActive: WSMessage = formatWSMessage(WSMessageOutType.MakeDeviceActive, { device_id: $activeDeviceId });
-    webSocket.send(JSON.stringify(makeDeviceActive));
+    sendWsMessage(makeDeviceActive);
     console.log("Sending make device active: ", makeDeviceActive);
 
     deviceListVisible = false;

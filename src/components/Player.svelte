@@ -39,7 +39,7 @@
     activeDeviceId,
     activeShuffleMode,
     isPlaying,
-    webSocket,
+    sendWsMessage,
     progressValue,
     progressValueChanging,
     rewindToValue,
@@ -193,7 +193,7 @@
 
   function onVolumeChange() {
     let volumeChange: WSMessage = formatWSMessage(WSMessageOutType.VolumeChange, { value: volumeControl });
-    webSocket.send(JSON.stringify(volumeChange));
+    sendWsMessage(volumeChange);
   }
 
   const handleProgressMouseUp = () => {
@@ -205,7 +205,7 @@
         jumpTime($progressValue);
         if ($deviceId !== $activeDeviceId) {
           let rewindTo: WSMessage = formatWSMessage(WSMessageOutType.RewindTo, { time: $progressValue });
-          webSocket.send(JSON.stringify(rewindTo));
+          sendWsMessage(rewindTo);
         }
         setTimeout(() => {
           $progressValueChanging = false;
@@ -305,7 +305,7 @@
       let currentPos: WSMessage = formatWSMessage(WSMessageOutType.CurrentPos, 
         { collection: $selectedCollection, track_id: $playItem.id, time: currentTime }
       );
-      webSocket.send(JSON.stringify(currentPos));
+      sendWsMessage(currentPos);
     }
   }
 
@@ -536,14 +536,14 @@
     reportPosition(true);
     if ($isPlaying) {
       let resumeMsg: WSMessage = formatWSMessage(WSMessageOutType.Resume, { });
-      webSocket.send(JSON.stringify(resumeMsg));
+      sendWsMessage(resumeMsg);
       if (player) {
         await safePlayPlayer();
       }
       $isPlaying = false;
     } else {
       let pauseMsg: WSMessage = formatWSMessage(WSMessageOutType.Pause, { });
-      webSocket.send(JSON.stringify(pauseMsg));
+      sendWsMessage(pauseMsg);
       $isPlaying = true;
 
       if (player) {
@@ -611,7 +611,7 @@
       let playTrack: WSMessage = formatWSMessage(WSMessageOutType.PlayTrack, 
         { collection: $selectedCollection, track_id: $playItem.id }
       );
-      webSocket.send(JSON.stringify(playTrack));
+      sendWsMessage(playTrack);
     }
   }
 
@@ -628,7 +628,7 @@
       playPosition($playItem.id - 1, !$isPlaying);
     } else {
       let prevTrack: WSMessage = formatWSMessage(WSMessageOutType.PrevTrack, { collection: $selectedCollection, dir: folder });
-      webSocket.send(JSON.stringify(prevTrack));
+      sendWsMessage(prevTrack);
     }
   }
 

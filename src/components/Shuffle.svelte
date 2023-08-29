@@ -4,7 +4,7 @@
   import { clickOutside } from "../util/dom";
   import { formatWSMessage } from "../types/types";
   import { ShuffleMode, WSMessageOutType } from "../types/enums";
-  import { webSocket, activeShuffleMode } from "../state/stores";
+  import { sendWsMessage, activeShuffleMode } from "../state/stores";
   import type { WSMessage } from "../types/types";
   const dispatch = createEventDispatcher();
 
@@ -16,7 +16,7 @@
 
   function updateShuffleMode() {
     let switchShuffle: WSMessage = formatWSMessage(WSMessageOutType.SwitchShuffle, { mode: $activeShuffleMode });
-    webSocket.send(JSON.stringify(switchShuffle));
+    sendWsMessage(switchShuffle);
     console.log("Sending shuffle mode: ", switchShuffle);
 
     shuffleListVisible = false;

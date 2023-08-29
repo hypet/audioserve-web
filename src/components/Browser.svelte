@@ -7,9 +7,8 @@
   import SortNameIcon from "svelte-material-icons/SortAlphabeticalAscending.svelte";
   import SortTimeIcon from "svelte-material-icons/SortClockAscendingOutline.svelte";
 
-  import type { PositionShort, Subfolder } from "../client";
+  import type { PositionShort } from "../client";
   import {
-    apiConfig,
     colApi,
     currentFolder,
     group,
@@ -17,7 +16,7 @@
     playItem,
     playList,
     selectedCollection,
-    webSocket,
+    sendWsMessage,
   } from "../state/stores";
   import { FolderType, NavigateTarget, StorageKeys, WSMessageOutType } from "../types/enums";
   import { PlayItem } from "../types/play-item";
@@ -28,7 +27,6 @@
     sorted,
   } from "../util";
   import FileItem from "./FileItem.svelte";
-  import FolderItem from "./FolderItem.svelte";
   import Description from "./Description.svelte";
   import Cover from "./Cover.svelte";
   import type { HistoryRecord, HistoryWrapper } from "../util/history";
@@ -66,7 +64,6 @@
 
   let files: Map<number, AudioFileExt> = new Map<number, AudioFileExt>();
   let dirs: Map<string, AudioFileExt[]> = new Map<string, AudioFileExt[]>();
-  // export const getFiles = () => files;
   let folderPath: string | undefined;
   let searchQuery: string | undefined;
   let folderTime: number;
@@ -114,7 +111,6 @@
   export async function loadAll() {
     try {
       console.log("loadAll");
-      const folder = "";
       const audioFolder = await $colApi.colIdAll({
         colId: $selectedCollection,
       });
@@ -122,18 +118,26 @@
       files = audioFolder.files!;
       dirs = new Map<string, AudioFileExt[]>();
       audioFolder.files!.forEach((f: AudioFileExt) => {
-          const filesInDir = dirs.get(f.parent_dir) || [];
-          filesInDir.push(f);
-          dirs.set(f.parent_dir, filesInDir);
+        var artist = null;
+        var title = null;
+        if (f.meta && f.meta.tags) {
+          const fileTags: Map<string, string> = f.meta.tags as Map<string, string>;
+          if (fileTags && fileTags.size > 0) {
+            artist = fileTags.get("Artist");
+            title = fileTags.get("Title");
+          }
+        }
+
+        const key = artist || f.parent_dir;
+        const filesInDir = dirs.get(key) || [];
+        filesInDir.push(f);
+        dirs.set(f.parent_dir, filesInDir);
       });
-      console.log("dirs: ", dirs);
-      localStorage.setItem(StorageKeys.LAST_FOLDER, folder);
 
       folderTime = audioFolder.totalTime;
       folderTags = audioFolder.tags;
       descriptionPath = audioFolder.description?.path;
       coverPath = audioFolder.cover?.path;
-
       folderPath = folder;
 
       $playList = {
@@ -201,7 +205,7 @@
     let playTrack: WSMessage = formatWSMessage(WSMessageOutType.PlayTrack, 
         { collection: $selectedCollection, track_id: file.id }
       );
-    webSocket.send(JSON.stringify(playTrack));
+    sendWsMessage(playTrack);
     $playItem = item;
     console.debug("startPlaying end");
   }

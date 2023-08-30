@@ -9,6 +9,7 @@
   import DownloadIcon from "svelte-material-icons/DownloadMultiple.svelte";
   import SleepIcon from "svelte-material-icons/AlarmSnooze.svelte";
   import SleepCancelIcon from "svelte-material-icons/AlarmOff.svelte";
+  import VisibilityChange from "svelte-visibility-change";
 
   import {
     apiConfig,
@@ -22,6 +23,7 @@
     playItem,
     pendingDownloads,
     sleepTime,
+    reconnectWebSocketIfNeeded,
   } from "./state/stores";
   import { onMount, setContext } from 'svelte';
   import { Configuration, ResponseError } from "./client";
@@ -347,6 +349,10 @@
 </script>
 
 <main>
+  <VisibilityChange
+    on:visible={() => ( reconnectWebSocketIfNeeded() )}
+  />
+
   {#if error}
     <h2>Error!</h2>
     <p>{error}</p>

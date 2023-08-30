@@ -228,6 +228,14 @@ function connectWebSocket() {
 
 connectWebSocket();
 
+export function reconnectWebSocketIfNeeded() {
+  if (!webSocket || webSocket.readyState !== webSocket.OPEN) {
+    waitForSocketConnection(function() {
+      console.log("Reconnected webSocket");
+    });
+  }
+}
+
 export function sendWsMessage(msg: WSMessage) {
   const json = JSON.stringify(msg);
   waitForSocketConnection(function() {
@@ -239,12 +247,10 @@ function waitForSocketConnection(callback: Function){
   setTimeout(
     function () {
       if (webSocket.readyState === webSocket.OPEN) {
-          console.log("Connection is ready")
-          if (callback != null){
-              callback();
-          }
+        if (callback != null){
+          callback();
+        }
       } else {
-          console.log("wait for connection...")
           waitForSocketConnection(callback);
       }
     }, 500);

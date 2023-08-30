@@ -138,13 +138,11 @@
       folderTags = audioFolder.tags;
       descriptionPath = audioFolder.description?.path;
       coverPath = audioFolder.cover?.path;
-      folderPath = folder;
 
       $playList = {
         files,
         dirs,
         collection: $selectedCollection,
-        folder: $currentFolder.value,
         totalTime: folderTime,
         hasImage: coverPath && coverPath.length > 0,
       };
@@ -195,10 +193,9 @@
   }
 
   function startPlaying(position: number, startPlay = true, time?: number) {
-    const file = files.get(position);
+    const file = files.get(position)!;
     const item = new PlayItem({
       file,
-      // position,
       startPlay,
       time,
     });
@@ -207,7 +204,6 @@
       );
     sendWsMessage(playTrack);
     $playItem = item;
-    console.debug("startPlaying end");
   }
 
   const unsubsribe: Unsubscriber[] = [];
@@ -250,7 +246,6 @@
   }
 
   $: if ($currentFolder != undefined) {
-    console.log("Browser loadAll...");
     let done: Promise<void>;
     const scrollTo = $currentFolder.scrollTo;
     if ($currentFolder.type === FolderType.REGULAR) {

@@ -7,7 +7,6 @@ import type { AudioFileExt } from "./types";
 
 export interface PlayItemParams {
   file: AudioFileExt;
-  // position: number;
   collection?: number;
   startPlay?: boolean;
   time?: number;
@@ -19,7 +18,6 @@ export class PlayItem {
   duration: number;
   name: string;
   path: string;
-  // position: number;
   startPlay: boolean;
   cached: boolean;
   time?: number;
@@ -32,7 +30,6 @@ export class PlayItem {
     this.name = params.file.name;
     this.path = params.file.path;
     this.cached = params.file.cached;
-    // this.position = params.position;
     this.startPlay = params.startPlay;
     this.time = params.time;
     this.mime = params.file.mime;

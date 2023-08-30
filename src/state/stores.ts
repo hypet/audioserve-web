@@ -146,19 +146,21 @@ function connectWebSocket() {
       case WSMessageInType.CurrentPosEvent: {
         const id: number = event["track_id"];
         const time: number = event["time"];
-        if (!playList) return;
+        const collection: number = event["collection"];
+        if (!playList || !currentPlayList) return;
 
         if (!playingItem || playingItem.id !== id) {
-          console.log("CurrentPosEvent id=", id);
-          const file = currentPlayList.files.get(id);
+          console.log("CurrentPosEvent id =", id);
+          const file = currentPlayList.files.get(id)!;
           const startPlay = false;
           const item = new PlayItem({
             file,
+            collection,
             startPlay,
             time,
           });
           playItem.set(item);
-          selectedCollection.set(event["collection"]);
+          selectedCollection.set(collection);
         } else {
           playingItem.time = time;
         }
@@ -179,13 +181,15 @@ function connectWebSocket() {
         break;
       case WSMessageInType.PlayTrackEvent: {
         const trackId = event["track_id"];
+        const collection: number = event["collection"];
         isPlaying.set(false);
-        const file = currentPlayList.files.get(trackId);
+        const file = currentPlayList.files.get(trackId)!;
         const time = 0.0;
         const startPlay = true;
-        selectedCollection.set(event["collection"]);
+        selectedCollection.set(collection);
         const item = new PlayItem({
           file,
+          collection,
           startPlay,
           time,
         });

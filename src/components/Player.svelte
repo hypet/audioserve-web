@@ -310,28 +310,11 @@
   }
 
   async function startPlay(item: PlayItem): Promise<void> {
-    console.debug("startPlay item:", item);
+    console.log("startPlay item:", item);
 
-    if (item && player) {
-      let source;
-      if (item.cached) {
-        const cachedItem = await cache?.getCachedUrl(item.url);
-        if (cachedItem) {
-          source = cachedItem.cachedUrl;
-          console.debug("Playing cached item", source);
-          cached = true;
-        } else {
-          console.warn("Item was removed from cache");
-          cached = false;
-          source = item.url;
-        }
-      } else {
-        //const url = item.createMediaSourceUrl();
-        source = item.url;
-        cached = false;
-      }
-      player.src = source;
-      localStorage.setItem(StorageKeys.LAST_FILE, item.path);
+    if (item) {
+      let source = item.url;
+      // localStorage.setItem(StorageKeys.LAST_FILE, item.id);
       timeOffset = 0;
       if (item.time != null && isFinite(item.time)) {
         setCurrentTime(item.time);
@@ -340,19 +323,22 @@
       duration = 0;
       fileDisplayName = splitExtInName(item).baseName;
       filePath = item.path;
-      transcoded = item.transcoded;
       mime = item.mime;
-      folder = $playList.folder;
+      folder = $playList?.files.get(item.id)?.parent_dir || "";
+      folderSize = $playList?.dirs?.get(folder)?.length || 0;
       collection = $playList.collection;
 
-      if (item.startPlay) {
-        await safePlayPlayer(true);
-        reportPosition();
-      } else {
-        $isPlaying = true;
-        wantPlay = false;
+      if (player) {
+        player.src = source;
+        if (item.startPlay) {
+          await safePlayPlayer(true);
+          reportPosition();
+        } else {
+          $isPlaying = true;
+          wantPlay = false;
+        }
+        updateMediaSessionMetadata(item);
       }
-      updateMediaSessionMetadata(item);
     }
   }
 

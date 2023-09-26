@@ -22,6 +22,7 @@
     windowSize,
     playItem,
     pendingDownloads,
+    searchTerm,
     sleepTime,
     reconnectWebSocketIfNeeded,
   } from "./state/stores";
@@ -30,7 +31,7 @@
   import { deleteCookie } from "./util/auth";
   import CollectionSelector from "./components/CollectionSelector.svelte";
   import Browser from "./components/Browser.svelte";
-  import { FolderType, StorageKeys } from "./types/enums";
+  import { StorageKeys } from "./types/enums";
   import Breadcrumb from "./components/Breadcrumb.svelte";
   import { baseUrl, otherTheme } from "./util/browser";
   import { gainFocus } from "./util/dom";
@@ -200,11 +201,7 @@
 
   let searchValue: string;
 
-  function checkSearch(evt: KeyboardEvent) {
-    if (evt.key === "Enter" && searchValue.length > 0) {
-      $currentFolder = { value: searchValue, type: FolderType.SEARCH };
-    }
-  }
+  $: searchTerm.set(searchValue);
 
   let error: string = null;
 
@@ -396,7 +393,6 @@
                   type="text"
                   name="search"
                   placeholder="Search"
-                  on:keyup={checkSearch}
                   bind:value={searchValue}
                   use:gainFocus
                 />

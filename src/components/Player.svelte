@@ -38,7 +38,7 @@
     deviceId,
     activeDeviceId,
     activeShuffleMode,
-    isPlaying,
+    isPaused,
     sendWsMessage,
     progressValue,
     progressValueChanging,
@@ -116,7 +116,7 @@
   function setCurrentTime(val: number, resetOffset = false) {
     if (resetOffset) timeOffset = 0;
     try {
-      if ($deviceId === $activeDeviceId) {
+      if ($deviceId === $activeDeviceId && player) {
         player.currentTime = val - timeOffset;
       }
       $progressValue = val;
@@ -133,11 +133,11 @@
   $: formattedFolderTime = formatTime(folderTime);
 
   $: {
-    const state = $isPlaying == null ? "none" : $isPlaying ? "paused" : "playing";
+    const state = $isPaused == null ? "none" : $isPaused ? "paused" : "playing";
     if (navigator.mediaSession) navigator.mediaSession.playbackState = state;
   }
   export const pause = () => {
-    $isPlaying = true;
+    $isPaused = true;
   };
   let preparingPlayback = false;
   let wantPlay = false;
@@ -238,7 +238,7 @@
   async function loadTime(time: number, startPlayback = false) {
     console.debug(`Seeking time on url ${$playItem.url} to time ${time}`);
     const newUrl = $playItem.url + `&seek=${time}`;
-    let wasPlaying = !$isPlaying;
+    let wasPlaying = !$isPaused;
     timeOffset = time;
     //player.src = null;
     player.src = newUrl;
@@ -251,6 +251,7 @@
 
   const safeToSeekInPlayer = (time: number) => {
     let diff = time - currentTime;
+    if (!player) return true;
     for (let i = 0; i < player.buffered.length; i++) {
       const start = timeOffset + player.buffered.start(i);
       const end = timeOffset + player.buffered.end(i);
@@ -269,7 +270,7 @@
   };
 
   function jumpTime(time: number) {
-    if (!$isPlaying) {
+    if (!$isPaused) {
       // can move only to already buffered or slightly beyond
       // otherwise use seek on server
       if (safeToSeekInPlayer(time)) {
@@ -287,7 +288,7 @@
       let toTime = $progressValue + amt;
       if (toTime < 0) {
         toTime = 0;
-      } else if ($isPlaying && toTime > expectedDuration) {
+      } else if ($isPaused && toTime > expectedDuration) {
         toTime = expectedDuration;
       }
       jumpTime(toTime);
@@ -297,7 +298,7 @@
   $: folderSize = $playList?.files.size || 0;
 
   function reportPosition(force?: boolean) {
-    if (($isPlaying && !force) || isNaN(currentTime)) return;
+    if (($isPaused && !force) || isNaN(currentTime)) return;
     const fullPath = `/${collection}/${filePath}`;
     $positionWsApi.enqueuePosition(fullPath, currentTime);
 
@@ -334,7 +335,7 @@
           await safePlayPlayer(true);
           reportPosition();
         } else {
-          $isPlaying = true;
+          $isPaused = true;
           wantPlay = false;
         }
         updateMediaSessionMetadata(item);
@@ -343,7 +344,7 @@
   }
 
   function updateMediaSessionMetadata(item: PlayItem) {
-    document.title = `${fileDisplayName} (${item.path})`;
+    document.title = `${fileDisplayName} (${item})`;
     if ("mediaSession" in navigator) {
       let icon = "favicon.png";
       if ($playList.hasImage) {
@@ -452,7 +453,7 @@
         getLocationPath()
       );
       if (cachedCollection === collection && cachedPath === filePath) {
-        switchCurrentToCached(evt.item, $isPlaying);
+        switchCurrentToCached(evt.item, $isPaused);
       }
     }
   }
@@ -485,8 +486,8 @@
   }
 
   async function playPlayer() {
-    if ($deviceId != $activeDeviceId) {
-      console.debug("This device is not active");
+    if ($deviceId !== $activeDeviceId && !player) {
+      console.log("This device is not active");
       return;
     }
     try {
@@ -520,17 +521,19 @@
 
   async function playPause() {
     reportPosition(true);
-    if ($isPlaying) {
+    if ($isPaused) {
+      console.log("Was paused, resuming");
       let resumeMsg: WSMessage = formatWSMessage(WSMessageOutType.Resume, { });
       sendWsMessage(resumeMsg);
       if (player) {
         await safePlayPlayer();
       }
-      $isPlaying = false;
+      $isPaused = false;
     } else {
+      console.log("Was not paused, pausing");
       let pauseMsg: WSMessage = formatWSMessage(WSMessageOutType.Pause, { });
       sendWsMessage(pauseMsg);
-      $isPlaying = true;
+      $isPaused = true;
 
       if (player) {
         wantPlay = false;
@@ -611,7 +614,7 @@
 
   function playPrevious() {
     if (ShuffleMode[$activeShuffleMode] === ShuffleMode[ShuffleMode.Off]) {
-      playPosition($playItem.id - 1, !$isPlaying);
+      playPosition($playItem.id - 1, !$isPaused);
     } else {
       let prevTrack: WSMessage = formatWSMessage(WSMessageOutType.PrevTrack, { collection: $selectedCollection, dir: folder });
       sendWsMessage(prevTrack);
@@ -620,16 +623,17 @@
 
   function playNext() {
     if (ShuffleMode[$activeShuffleMode] === ShuffleMode.Off) {
-      playPosition($playItem.id + 1, !$isPlaying);
+      playPosition($playItem.id + 1, !$isPaused);
     } else {
       const nextRandomInt = randomIntFromInterval(1, $playList.files.size - 1);
       console.log("nextRandomInt id", nextRandomInt);
-      playPosition(nextRandomInt, !$isPlaying);
+      playPosition(nextRandomInt, !$isPaused);
     }
   }
 
   function updateBuffered() {
     const arr = [];
+    if (!player) return;
     for (let i = 0; i < player.buffered.length; i++) {
       arr.push({
         start: timeOffset + player.buffered.start(i),
@@ -681,7 +685,7 @@
     }
 
     if (evt.key === "MediaPlay") {
-      if ($isPlaying) playPause();
+      if ($isPaused) playPause();
       return;
     }
 
@@ -868,7 +872,7 @@
         crossorigin="use-credentials"
         bind:duration
         bind:currentTime={playbackTime}
-        bind:paused={$isPlaying}
+        bind:paused={$isPaused}
         bind:volume
         bind:playbackRate
         bind:this={player}
@@ -925,13 +929,13 @@
         <span
           tabindex="0"
           role="button"
-          aria-label={$isPlaying ? "Play" : "Pause"}
+          aria-label={$isPaused ? "Play" : "Pause"}
           title="You can also use Space key"
           class="control-button button-like"
           class:blink={preparingPlayback}
           on:click={playPause}
         >
-          {#if $isPlaying}
+          {#if $isPaused}
             <PlayIcon size={controlSize} />
           {:else}
             <PauseIcon size={controlSize} />
@@ -956,6 +960,7 @@
         >
           <NextIcon size={controlSize} />
         </span>
+        <span>{$isPaused}</span>
 
         <!-- <span class="control-button" on:click={null}>
     <span><SpeedIcon size="{controlSize}" /></span>

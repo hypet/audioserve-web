@@ -75,9 +75,9 @@ export function splitExtInName(file: AudioFile): {
   baseName: string;
   extension?: string;
 } {
-  const idx = file.path.lastIndexOf(".");
+  const idx = file.name.lastIndexOf(".");
   if (idx >= 0) {
-    const ext = file.path.substring(idx);
+    const ext = file.name.substring(idx);
     const baseName = file.name.endsWith(ext)
       ? file.name.substring(0, file.name.length - ext.length)
       : file.name;

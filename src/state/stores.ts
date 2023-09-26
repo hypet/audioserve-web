@@ -36,11 +36,12 @@ export const deviceId: Writable<String | undefined> = writable(undefined);
 export const activeDeviceId: Writable<String | undefined> = writable(undefined);
 export const devicesOnline: Writable<Device[]> = writable([]);
 export const activeShuffleMode: Writable<number> = writable(ShuffleMode.Off);
-export const isPlaying: Writable<boolean> = writable(false);
+export const isPaused: Writable<boolean> = writable(true);
 export const progressValue: Writable<number | undefined> = writable(undefined);
 export const progressValueChanging: Writable<boolean> = writable(false);
 export const rewindToValue: Writable<number | undefined> = writable(undefined);
 export const volumeValue: Writable<number | undefined> = writable(undefined);
+export const searchTerm: Writable<string> = writable('');
 
 export const colApi = derived(
   apiConfig,
@@ -105,7 +106,7 @@ let activeDeviceIdVal: String;
 
 deviceId.subscribe((value) => deviceIdVal = value);
 playItem.subscribe((value) => playingItem = value);
-isPlaying.subscribe((value) => isPlayingState = value);
+isPaused.subscribe((value) => isPlayingState = value);
 playList.subscribe((value) => currentPlayList = value);
 devicesOnline.subscribe((value) => devicesOnlineVal = value);
 activeDeviceId.subscribe((value) => activeDeviceIdVal = value);
@@ -165,24 +166,20 @@ function connectWebSocket() {
           playingItem.time = time;
         }
         
-        if (!isPlayingState) {
-          console.log("isPlayingState: ", isPlayingState);
-          isPlaying.set(true);
-        }
+        isPaused.set(false);
         progressValue.set(time);
         break;
       }
       case WSMessageInType.PauseEvent: 
-        isPlaying.set(false);
-        console.log("isPlaying: ", isPlaying);
+        isPaused.set(true);
         break;
       case WSMessageInType.ResumeEvent:
-        isPlaying.set(true);
+        isPaused.set(false);
         break;
       case WSMessageInType.PlayTrackEvent: {
         const trackId = event["track_id"];
         const collection: number = event["collection"];
-        isPlaying.set(false);
+        isPaused.set(false);
         const file = currentPlayList.files.get(trackId)!;
         const time = 0.0;
         const startPlay = true;

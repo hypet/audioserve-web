@@ -7,23 +7,20 @@
 <script lang="ts">
   import {
     config,
-    currentFolder,
     playItem,
     playList,
     selectedCollection,
   } from "../state/stores";
   import { formatTime } from "../util/date";
   import { splitExtInName } from "../util";
-  import Cached from "svelte-material-icons/Cached.svelte";
   import Play from "svelte-material-icons/Play.svelte";
   import PlayCircled from "svelte-material-icons/PlayCircleOutline.svelte";
-  import { FolderType } from "../types/enums";
-  import type { AudioFileExt } from "../types/types";
   import { Scroller } from "../util/dom";
   import { slideAction } from "../util/browser";
   import { spring } from "svelte/motion";
+  import type { AudioFile } from "../client";
 
-  export let file: AudioFileExt;
+  export let file: AudioFile;
   export let position: number;
   export let container: HTMLElement;
   export let playFunction: (
@@ -57,9 +54,7 @@
   $: isPlaying =
     $playItem &&
     $playList &&
-    $playItem.path === file.path &&
-    $playList.folder === $currentFolder.value &&
-    $currentFolder.type === FolderType.REGULAR &&
+    $playItem.id === file.id &&
     $playList.collection === $selectedCollection;
   $: if (isPlaying && elem && scroller) {
     scroller.scrollToView(elem);
@@ -137,11 +132,6 @@
         <span class="bitrate">{file.meta?.bitrate}kbps</span>
         {#if extension}<span class="extension">{extension}</span>{/if}
       </div>
-    </div>
-    <div class="icons">
-      {#if file.cached}
-        <span aria-label="Cached"><Cached size="1.2em" /></span>
-      {/if}
     </div>
   </div>
 </li>

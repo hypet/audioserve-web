@@ -7,7 +7,7 @@
   import SortNameIcon from "svelte-material-icons/SortAlphabeticalAscending.svelte";
   import SortTimeIcon from "svelte-material-icons/SortClockAscendingOutline.svelte";
 
-  import type { PositionShort } from "../client";
+  import type { AudioFile, PositionShort } from "../client";
   import {
     colApi,
     currentFolder,
@@ -15,12 +15,13 @@
     isAuthenticated,
     playItem,
     playList,
+    searchTerm,
     selectedCollection,
     sendWsMessage,
   } from "../state/stores";
   import { FolderType, NavigateTarget, StorageKeys, WSMessageOutType } from "../types/enums";
   import { PlayItem } from "../types/play-item";
-  import { formatWSMessage, type AudioFileExt, type WSMessage } from "../types/types";
+  import { formatWSMessage, type WSMessage } from "../types/types";
   import { formatTime } from "../util/date";
   import {
     nonEmpty,
@@ -62,8 +63,33 @@
     }
   };
 
-  let files: Map<number, AudioFileExt> = new Map<number, AudioFileExt>();
-  let dirs: Map<string, AudioFileExt[]> = new Map<string, AudioFileExt[]>();
+  let files: Map<number, AudioFile> = new Map<number, AudioFile>();
+  let dirs: Map<string, AudioFile[]> = new Map<string, AudioFile[]>();
+
+  let filteredDirs: Map<string, AudioFile[]>;
+  $: {
+    if ($searchTerm && $searchTerm.length > 0) {
+      filteredDirs = filterBySearchTerm($searchTerm);
+    } else {
+      filteredDirs = dirs;
+    }
+  }
+
+  function filterBySearchTerm(searchValue: string): Map<string, AudioFile[]> {
+    console.log("Start search");
+    let term = searchValue.toLowerCase();
+    let resultMap: Map<string, AudioFile[]> = new Map<string, AudioFile[]>();
+    dirs?.forEach((f: AudioFile[], dir: string) => {
+      if (dir.toLowerCase().match(term)) {
+        resultMap.set(dir, f);
+      } else {
+        resultMap.set(dir, f.filter(file => file.name.toLowerCase().match(term)));
+      }
+    });
+    console.log("End search");
+    return resultMap;
+  }
+
   let folderPath: string | undefined;
   let searchQuery: string | undefined;
   let folderTime: number;
@@ -83,8 +109,6 @@
         q: query,
         group: $group,
       });
-
-      // files = [];
 
       searchQuery = query;
 
@@ -116,8 +140,9 @@
       });
 
       files = audioFolder.files!;
-      dirs = new Map<string, AudioFileExt[]>();
-      audioFolder.files!.forEach((f: AudioFileExt) => {
+      dirs = new Map<string, AudioFile[]>();
+
+      files.forEach((f: AudioFile) => {
         var artist = null;
         var title = null;
         if (f.meta && f.meta.tags) {
@@ -302,9 +327,9 @@
 
 <div id="browser">
   <div class="main-browser-panel">
-    {#if dirs.size > 0}
-      {#each sorted(Array.from(dirs.keys())) as dir}
-      {@const fileList = dirs.get(dir)}
+    {#if filteredDirs.size > 0}
+      {#each sorted(Array.from(filteredDirs.keys())) as dir}
+      {@const fileList = filteredDirs.get(dir)}
       {#if fileList && fileList.length > 0}
       <details open role="region" aria-label="Files" class="details-album">
         <summary>{dir}<Badge value={fileList.length} />
@@ -329,7 +354,7 @@
         {/if}
       {/each}
     {/if}
-      </div>
+  </div>
   {#if $currentFolder && $currentFolder.type === FolderType.REGULAR}
     <div class="browser-sidebar">
       {#if sharedPosition && sharePositionDisplayName}

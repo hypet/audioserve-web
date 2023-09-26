@@ -960,7 +960,6 @@
         >
           <NextIcon size={controlSize} />
         </span>
-        <span>{$isPaused}</span>
 
         <!-- <span class="control-button" on:click={null}>
     <span><SpeedIcon size="{controlSize}" /></span>

@@ -451,7 +451,7 @@
   }
   summary {
     font-weight: bold;
-    font-size: 1.0rem;
-    line-height: 1.0rem;
+    font-size: 0.9rem;
+    line-height: 0.9rem;
   }
 </style>

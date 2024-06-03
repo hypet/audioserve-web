@@ -50,12 +50,6 @@ export class Scroller {
   }
 
   scrollToView(elem: HTMLElement) {
-    const scrollDirection = this.needScroll(elem);
-    if (scrollDirection !== Scroll.NO) {
-      elem.scrollIntoView(scrollDirection === Scroll.DOWN ? true : false);
-      if (scrollDirection === Scroll.UP) {
-        this.container.scrollBy({ top: this.scrollOffset });
-      }
-    }
+    elem.scrollIntoView(true);
   }
 }

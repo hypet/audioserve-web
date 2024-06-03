@@ -82,6 +82,6 @@ button:focus-visible {
 .item-header[role="link"] {
   all: inherit;
   font-size: 0.75rem;
-  font-weight: bold;
+  font-weight: 500;
   color: var(--h4-color);
 }

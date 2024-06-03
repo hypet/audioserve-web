@@ -68,6 +68,8 @@ export interface AudioFolder {
      * @memberof AudioFolder
      */
     files?: Map<number, AudioFile>;
+    
+    subfolders?: Array<Subfolder>;
     /**
      * 
      * @type {TypedFile}
@@ -111,6 +113,7 @@ export function AudioFolderFromJSONTyped(json: any, ignoreDiscriminator: boolean
         'modified': !exists(json, 'modified') ? undefined : json['modified'],
         'totalTime': !exists(json, 'total_time') ? undefined : json['total_time'],
         'files': !exists(json, 'files') ? undefined : new Map((json['files'] as Array<any>).map(AudioFileFromJSON)),
+        'subfolders': !exists(json, 'subfolders') ? undefined : (json['subfolders'] as Array<any>).map(SubfolderFromJSON),
         'cover': !exists(json, 'cover') ? undefined : TypedFileFromJSON(json['cover']),
         'description': !exists(json, 'description') ? undefined : TypedFileFromJSON(json['description']),
         'tags': !exists(json, 'tags') ? undefined : json['tags'],

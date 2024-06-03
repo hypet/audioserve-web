@@ -1,6 +1,6 @@
 import { WSMessageOutType } from "./enums";
 import type { AudioFile } from "../client";
-import type { FolderType } from "./enums";
+import type { FolderType, NavigateTarget } from "./enums";
 
 export interface AudioFileExt extends AudioFile {
   cached?: boolean;
@@ -46,6 +46,11 @@ export interface ClientDevice {
   name: string,
   id: string,
   active: boolean
+}
+
+export interface NavigateFolder {
+  type: NavigateTarget,
+  folder: string
 }
 
 export interface WSMessage extends Record<string, any> {

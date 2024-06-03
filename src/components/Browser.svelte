@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getContext, onDestroy } from "svelte";
+  import { getContext, onDestroy, createEventDispatcher } from "svelte";
   import type { Unsubscriber } from "svelte/store";
   import { EventType } from "../cache";
   import type { Cache, CacheEvent } from "../cache";
@@ -7,7 +7,7 @@
   import SortNameIcon from "svelte-material-icons/SortAlphabeticalAscending.svelte";
   import SortTimeIcon from "svelte-material-icons/SortClockAscendingOutline.svelte";
 
-  import type { AudioFile, PositionShort } from "../client";
+  import type { AudioFile, PositionShort, Subfolder } from "../client";
   import {
     colApi,
     currentFolder,
@@ -21,7 +21,7 @@
   } from "../state/stores";
   import { FolderType, NavigateTarget, StorageKeys, WSMessageOutType } from "../types/enums";
   import { PlayItem } from "../types/play-item";
-  import { formatWSMessage, type WSMessage } from "../types/types";
+  import { formatWSMessage, type WSMessage, type NavigateFolder } from "../types/types";
   import { formatTime } from "../util/date";
   import {
     nonEmpty,
@@ -39,7 +39,8 @@
 
   const cache: Cache = getContext("cache");
   const history: HistoryWrapper = getContext("history");
-
+  const dispatch = createEventDispatcher();
+  
   export let container: HTMLDivElement;
   let observer: Observer;
   $: {
@@ -74,7 +75,8 @@
       filteredDirs = dirs;
     }
   }
-
+  let rootSubfolders: Array<Subfolder>;
+  
   function filterBySearchTerm(searchValue: string): Map<string, AudioFile[]> {
     console.log("Start search");
     let term = searchValue.toLowerCase();
@@ -135,6 +137,12 @@
   export async function loadAll() {
     try {
       console.log("loadAll");
+      const subFolders = await $colApi.colIdFolderPathGet({
+        colId: $selectedCollection,
+        path: ""
+      });
+      rootSubfolders = subFolders.subfolders!;
+
       const audioFolder = await $colApi.colIdAll({
         colId: $selectedCollection,
       });
@@ -205,9 +213,16 @@
 
   function navigateTo(folder: string) {
     return () => {
-      console.debug("navigateTo");
-      $currentFolder = { value: folder, type: FolderType.REGULAR };
+      const id = "dtl-" + folderNameToId(folder);
+      $selectedCollection = $playList.collection;
+      const elem: HTMLElement = document.querySelector("details#" + id);
+      const scroller = new Scroller(container, 10);
+      scroller.scrollToView(elem);
     };
+  }
+
+  function folderNameToId(folder: string): string {
+    return folder.replace(/\W/g,'_');
   }
 
   function playSharedPosition() {
@@ -326,13 +341,22 @@
 </script>
 
 <div id="browser">
+  <div class="folders-sidebar-wrap">
+    <div class="folders-sidebar">
+      {#if filteredDirs.size > 0}
+        {#each sorted(rootSubfolders.map((subdir) => { return subdir.name })) as dir}
+        <div class="folder-item"><span role="link" on:click={navigateTo(dir)} >{dir}</span></div>
+        {/each}
+      {/if}
+    </div>
+  </div>
   <div class="main-browser-panel">
     {#if filteredDirs.size > 0}
       {#each sorted(Array.from(filteredDirs.keys())) as dir}
       {@const fileList = filteredDirs.get(dir)}
       {#if fileList && fileList.length > 0}
-      <details open role="region" aria-label="Files" class="details-album">
-        <summary>{dir}<Badge value={fileList.length} />
+      <details open role="region" id="dtl-{folderNameToId(fileList[0].root_subfolder)}" aria-label="Files" class="details-album">
+        <summary id="{folderNameToId(dir)}">{dir}<Badge value={fileList.length} />
           <!-- <span class="files-duration"><ClockIcon />
             <span>{formatTime(folderTime)}</span>
           </span> -->
@@ -427,9 +451,34 @@
     flex-direction: row;
   }
 
+  .main-browser-panel-wrap {
+    width: 100%;
+    overflow-y: hidden;
+  }
+
   .main-browser-panel {
     width: 100%;
+    height: 100vh;
     margin-right: 3em;
+    overflow-y: scroll;
+  }
+
+  .folder-item {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .folders-sidebar-wrap {
+    width: 33%;
+    overflow-y: hidden;
+  }
+
+  .folders-sidebar {
+    width: 100%;
+    height: 100vh;
+    padding-left: 1rem;
+    font-size: 0.7rem;
+    overflow-y: scroll;
   }
 
   .browser-sidebar {

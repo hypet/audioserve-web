@@ -7,7 +7,7 @@
   import SortNameIcon from "svelte-material-icons/SortAlphabeticalAscending.svelte";
   import SortTimeIcon from "svelte-material-icons/SortClockAscendingOutline.svelte";
 
-  import type { AudioFile, PositionShort, Subfolder } from "../client";
+  import type { AudioFile, PositionShort, SearchResult, Subfolder } from "../client";
   import {
     colApi,
     currentFolder,
@@ -69,13 +69,38 @@
 
   let filteredDirs: Map<string, AudioFile[]>;
   $: {
-    if ($searchTerm && $searchTerm.length > 0) {
-      filteredDirs = filterBySearchTerm($searchTerm);
-    } else {
+    if ($searchTerm.length > 0) {
+      if ($searchTerm != searchQuery) {
+        filteredDirs = searchFor($searchTerm);
+        console.log("Filtered dirs: ", filteredDirs);
+        rootSubfolders = Array.from(filteredDirs.keys());
+        console.log("Root subfolders: ", rootSubfolders);
+      }
+    } 
+    else {
+      console.log("Reset Filtered dirs: ", filteredDirs);
       filteredDirs = dirs;
+      rootSubfolders = Array.from(dirs.keys());
+      $playList = {
+        files: files,
+        dirs: dirs,
+        collection: $selectedCollection,
+        totalTime: folderTime,
+        hasImage: coverPath && coverPath.length > 0,
+      };
     }
   }
-  let rootSubfolders: Array<Subfolder>;
+
+  let rootSubfolders: Array<string>;
+  let folderPath: string | undefined;
+  let searchQuery: string | undefined;
+  let folderTime: number;
+  let folderTags: object = null;
+  let sharedPosition: PositionShort | null;
+  let sharePositionDisplayName: string;
+  let descriptionPath: string;
+  let coverPath: string;
+  let sortTime = false;
   
   function filterBySearchTerm(searchValue: string): Map<string, AudioFile[]> {
     console.log("Start search");
@@ -92,35 +117,60 @@
     return resultMap;
   }
 
-  let folderPath: string | undefined;
-  let searchQuery: string | undefined;
-  let folderTime: number;
-  let folderTags: object = null;
-  let sharedPosition: PositionShort | null;
-  let sharePositionDisplayName: string;
-
-  let descriptionPath: string;
-  let coverPath: string;
-
-  let sortTime = false;
-  
-  async function searchFor(query: string) {
-    try {
-      const result = await $colApi.colIdSearchGet({
+  async function search_request(query: string): Promise<SearchResult> {
+    const result = await $colApi.colIdSearchGet({
         colId: $selectedCollection,
         q: query,
         group: $group,
       });
+    return result;
+  }
 
-      searchQuery = query;
+  function searchFor(query: string): Map<string, AudioFile[]> {
+    var searchDirs = new Map<string, AudioFile[]>();
+      try {
+      search_request(query)
+        .then((result) => {
+          var searchFiles = result.files;
+          if (searchFiles == undefined) return searchDirs;
+          searchFiles.forEach((f: AudioFile) => {
+            var artist = null;
+            var title = null;
+            if (f.meta && f.meta.tags) {
+              const fileTags: Map<string, string> = f.meta.tags as Map<string, string>;
+              if (fileTags && fileTags.size > 0) {
+                artist = fileTags.get("Artist");
+                title = fileTags.get("Title");
+              }
+            }
+
+            const dir = pathToString(f.path);
+            const key = artist || dir;
+            const filesInDir = searchDirs.get(key) || [];
+            filesInDir.push(f);
+            searchDirs.set(dir, filesInDir);
+          });
+
+          $playList = {
+            files: searchFiles,
+            dirs: searchDirs,
+            collection: $selectedCollection,
+            totalTime: folderTime,
+            hasImage: coverPath && coverPath.length > 0,
+          };
+
+          searchQuery = query;
+          console.log(searchDirs);
+        })
+        .catch((error) => console.error(error));
 
       // Other properties are not relevant and should be reset
-      sharedPosition = undefined;
-      folderPath = undefined;
-      folderTime = undefined;
-      folderTags = undefined;
-      descriptionPath = undefined;
-      coverPath = undefined;
+      // sharedPosition = undefined;
+      // folderPath = undefined;
+      // folderTime = undefined;
+      // folderTags = undefined;
+      // descriptionPath = undefined;
+      // coverPath = undefined;
     } catch (resp) {
       console.error("Cannot search", resp);
       if (resp.status === 401) {
@@ -132,17 +182,13 @@
         }
       }
     }
+
+    return searchDirs;
   }
 
   export async function loadAll() {
     try {
       console.log("loadAll");
-      const subFolders = await $colApi.colIdFolderPathGet({
-        colId: $selectedCollection,
-        path: ""
-      });
-      rootSubfolders = subFolders.subfolders!;
-
       const audioFolder = await $colApi.colIdAll({
         colId: $selectedCollection,
       });
@@ -161,16 +207,17 @@
           }
         }
 
-        const key = artist || f.parent_dir;
+        const dir = pathToString(f.path);
+        const key = artist || dir;
         const filesInDir = dirs.get(key) || [];
         filesInDir.push(f);
-        dirs.set(f.parent_dir, filesInDir);
+        dirs.set(dir, filesInDir);
       });
 
-      folderTime = audioFolder.totalTime;
-      folderTags = audioFolder.tags;
-      descriptionPath = audioFolder.description?.path;
-      coverPath = audioFolder.cover?.path;
+      // folderTime = audioFolder.totalTime;
+      // folderTags = audioFolder.tags;
+      // descriptionPath = audioFolder.description?.path;
+      // coverPath = audioFolder.cover?.path;
 
       $playList = {
         files,
@@ -189,8 +236,15 @@
         $isAuthenticated = false;
       }
     } finally {
-      searchQuery = undefined;
+      // searchQuery = undefined;
     }
+  }
+
+  function pathToString(path: Array<string>): string {
+    if (path.length == 1) {
+      return path[path.length - 1];
+    }
+    return `${path[path.length - 2]} > ${path[path.length - 1]}`;
   }
 
   export function constructHistoryState(scrollTo?: number): HistoryRecord {
@@ -213,9 +267,9 @@
 
   function navigateTo(folder: string) {
     return () => {
-      const id = "dtl-" + folderNameToId(folder);
+      const id = folderNameToId(folder);
       $selectedCollection = $playList.collection;
-      const elem: HTMLElement = document.querySelector("details#" + id);
+      const elem: HTMLElement = document.getElementById(id);
       const scroller = new Scroller(container, 10);
       scroller.scrollToView(elem);
     };
@@ -344,7 +398,7 @@
   <div class="folders-sidebar-wrap">
     <div class="folders-sidebar">
       {#if filteredDirs.size > 0}
-        {#each sorted(rootSubfolders.map((subdir) => { return subdir.name })) as dir}
+        {#each sorted(rootSubfolders.map((subdir) => { return subdir })) as dir}
         <div class="folder-item"><span role="link" on:click={navigateTo(dir)} >{dir}</span></div>
         {/each}
       {/if}
@@ -355,7 +409,7 @@
       {#each sorted(Array.from(filteredDirs.keys())) as dir}
       {@const fileList = filteredDirs.get(dir)}
       {#if fileList && fileList.length > 0}
-      <details open role="region" id="dtl-{folderNameToId(fileList[0].root_subfolder)}" aria-label="Files" class="details-album">
+      <details open role="region" id="dtl-{folderNameToId(fileList[0].path[fileList[0].path.length - 1])}" aria-label="Files" class="details-album">
         <summary id="{folderNameToId(dir)}">{dir}<Badge value={fileList.length} />
           <!-- <span class="files-duration"><ClockIcon />
             <span>{formatTime(folderTime)}</span>

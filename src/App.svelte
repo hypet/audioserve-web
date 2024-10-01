@@ -83,8 +83,6 @@
     }
   });
 
-  $: console.debug("Selected collection is " + $selectedCollection);
-
   if (initialHash) {
     const fld = parseHistoryFragment(initialHash);
     if (fld) {
@@ -113,7 +111,7 @@
   );
 
   let container: HTMLDivElement;
-  let browser: Browser;
+  let browser: Browser | undefined;
   let isInitialized = false;
 
   async function loadCollections() {
@@ -199,7 +197,7 @@
     // }
   }
 
-  let searchValue: string;
+  let searchValue: string = "";
 
   $: searchTerm.set(searchValue);
 

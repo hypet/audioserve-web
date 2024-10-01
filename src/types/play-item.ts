@@ -15,10 +15,10 @@ export interface PlayItemParams {
 export class PlayItem {
   id: number;
   url: string;
-  duration: number;
+  duration: number | undefined;
   name: string;
   path: string;
-  startPlay: boolean;
+  startPlay?: boolean;
   cached: boolean;
   time?: number;
   mime: string;
@@ -28,7 +28,7 @@ export class PlayItem {
     this.url = this.constructURLWithId(params.file.id, params.collection);
     this.duration = params.file.meta?.duration;
     this.name = params.file.name;
-    this.path = params.file.parent_dir;
+    this.path = params.file.path.join("/");
     this.cached = false;
     this.startPlay = params.startPlay;
     this.time = params.time;

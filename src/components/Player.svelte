@@ -589,7 +589,6 @@
       const nextFile = $playList.files.get(nextPosition);
       const item = new PlayItem({
         file: nextFile,
-        // position: nextPosition,
         startPlay,
         collection: $playList.collection,
         time: 0,

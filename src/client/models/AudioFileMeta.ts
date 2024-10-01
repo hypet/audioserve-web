@@ -37,6 +37,7 @@ export interface AudioFileMeta {
      * @memberof AudioFileMeta
      */
     tags?: object | null;
+    played_times: number;
 }
 
 /**
@@ -57,7 +58,7 @@ export function AudioFileMetaFromJSONTyped(json: any, ignoreDiscriminator: boole
         return json;
     }
     return {
-        
+        'played_times': !exists(json, 'played_times') ? undefined : json['played_times'],
         'duration': !exists(json, 'duration') ? undefined : json['duration'],
         'bitrate': !exists(json, 'bitrate') ? undefined : json['bitrate'],
         'tags': !exists(json, 'tags') ? undefined : json['tags'],
@@ -72,7 +73,7 @@ export function AudioFileMetaToJSON(value?: AudioFileMeta | null): any {
         return null;
     }
     return {
-        
+        'played_times': value.played_times,
         'duration': value.duration,
         'bitrate': value.bitrate,
         'tags': value.tags,

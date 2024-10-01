@@ -48,10 +48,8 @@ export interface AudioFile {
      * @type {string}
      * @memberof AudioFile
      */
-    parent_dir: string;
+    path: Array<string>;
 
-    // AKA Artist
-    root_subfolder: string;
     /**
      * 
      * @type {AudioFileMeta}
@@ -95,8 +93,7 @@ export function AudioFileFromJSONTyped(json: any, ignoreDiscriminator: boolean):
     return [json['id'], {
         'id': json['id'],
         'name': json['name'],
-        'parent_dir': json['parent_dir'].replace('/', " > "),
-        'root_subfolder': json['root_subfolder'],
+        'path': json['path'] as Array<string>,
         'meta': !exists(json, 'meta') ? undefined : AudioFileMetaFromJSON(json['meta']),
         'mime': json['mime'],
         'section': !exists(json, 'section') ? undefined : AudioFileSectionFromJSON(json['section']),

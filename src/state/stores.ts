@@ -230,10 +230,11 @@ function connectWebSocket() {
 connectWebSocket();
 
 export function reconnectWebSocketIfNeeded() {
+  if (webSocket && webSocket.readyState === webSocket.CONNECTING) {
+    return;
+  }
   if (!webSocket || webSocket.readyState !== webSocket.OPEN) {
-    waitForSocketConnection(function() {
-      console.log("Reconnected webSocket");
-    });
+    connectWebSocket();
   }
 }
 

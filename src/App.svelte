@@ -83,6 +83,10 @@
     }
   });
 
+  window.addEventListener("online", (e) => {
+    reconnectWebSocketIfNeeded();
+  });
+
   if (initialHash) {
     const fld = parseHistoryFragment(initialHash);
     if (fld) {
@@ -115,7 +119,6 @@
   let isInitialized = false;
 
   async function loadCollections() {
-    console.log("loadCollections");
     const res = Promise.all([
       $colApi.collectionsGet().then((cols) => {
         console.log("Got collections list", cols);
@@ -143,7 +146,7 @@
         break;
       case "switch-theme":
         const theme = otherTheme();
-        document.querySelector("html").setAttribute("data-theme", theme);
+        document.querySelector("html")?.setAttribute("data-theme", theme);
         localStorage.setItem(StorageKeys.THEME, theme);
         break;
       case "clear-cache":

@@ -241,10 +241,7 @@
   }
 
   function pathToString(path: Array<string>): string {
-    if (path.length == 1) {
-      return path[path.length - 1];
-    }
-    return `${path[path.length - 2]} > ${path[path.length - 1]}`;
+    return path.join(' > ');
   }
 
   export function constructHistoryState(scrollTo?: number): HistoryRecord {

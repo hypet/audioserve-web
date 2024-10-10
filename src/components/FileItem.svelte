@@ -131,6 +131,7 @@
         <span class="time">{formattedDuration}</span>
         <span class="bitrate">{file.meta?.bitrate}kbps</span>
         {#if extension}<span class="extension">{extension}</span>{/if}
+        {#if file.meta && file.meta.played_times > 0}<span class="timesplayed"><Play size="1rem" />{file.meta.played_times}</span>{/if}
       </div>
     </div>
   </div>

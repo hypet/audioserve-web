@@ -319,7 +319,6 @@
         $lastPlayActionTimestamp = Date.now();
       }
       let source = item.url;
-      // localStorage.setItem(StorageKeys.LAST_FILE, item.id);
       timeOffset = 0;
       if (item.time != null && isFinite(item.time)) {
         setCurrentTime(item.time);
@@ -826,7 +825,7 @@
           id="folder-name"
           class="item-name link-like"
           dir="rtl"
-          on:click={navigateToFolder}>{folder}</span
+          on:click={navigateToFolder}>{$playItem?.path}</span
         >
       </div>
       <div class="item-info" id="file-info">
@@ -853,9 +852,6 @@
           on:click={locateFile}
           aria-label="Position of currently playing file in folder"
         >
-          (<span>{folderSize ? folderPosition + 1 : 0}</span>/<span
-            >{folderSize}</span
-          >)
         </span>
         <span
           role="link"
@@ -864,7 +860,7 @@
           class="item-name link-like"
           on:click={locateFile}
         >
-          {fileDisplayName}
+          {$playItem?.name}
         </span>
       </div>
     </div>

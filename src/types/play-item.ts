@@ -28,7 +28,7 @@ export class PlayItem {
     this.url = this.constructURLWithId(params.file.id, params.collection);
     this.duration = params.file.meta?.duration;
     this.name = params.file.name;
-    this.path = params.file.path.join("/");
+    this.path = params.file.path[params.file.path.length - 1];
     this.cached = false;
     this.startPlay = params.startPlay;
     this.time = params.time;

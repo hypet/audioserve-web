@@ -61,6 +61,13 @@
         const scroller = new Scroller(container);
         scroller.scrollToView(elem.parentElement);
       }
+    } else if (where === NavigateTarget.PLAYLIST_FOLDER) {
+      if (!$playItem) return;
+
+      const item = $playList?.files.get($playItem?.id);
+      if (item) {
+        navigateTo(pathToString(item.path))();
+      }
     }
   };
 
@@ -100,8 +107,8 @@
   let sharePositionDisplayName: string;
   let descriptionPath: string;
   let coverPath: string;
-  let sortTime = false;
   
+  // Client-side search (not in use ATM)
   function filterBySearchTerm(searchValue: string): Map<string, AudioFile[]> {
     console.log("Start search");
     let term = searchValue.toLowerCase();
@@ -188,7 +195,7 @@
 
   export async function loadAll() {
     try {
-      console.log("loadAll");
+      const now = Date.now();
       const audioFolder = await $colApi.colIdAll({
         colId: $selectedCollection,
       });
@@ -226,7 +233,7 @@
         totalTime: folderTime,
         hasImage: coverPath && coverPath.length > 0,
       };
-
+      console.log("loadAll time:", (Date.now() - now));
   } catch (resp) {
       console.error("Cannot load all", resp);
       if (resp.status === 404) {

@@ -56,9 +56,6 @@
     $playList &&
     $playItem.id === file.id &&
     $playList.collection === $selectedCollection;
-  $: if (isPlaying && elem && scroller) {
-    scroller.scrollToView(elem);
-  }
 
   const DEFAULT_SPRING_PARAMS = { stiffness: 0.05, damping: 0.5 };
   const SLIDING_SPRING_PARAMS = { stiffness: 1, damping: 1 };

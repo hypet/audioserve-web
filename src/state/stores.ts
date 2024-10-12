@@ -117,7 +117,6 @@ function connectWebSocket() {
     console.debug("Web socket close", close);
   });
   webSocket.addEventListener("message", evt => {
-    console.debug("evt: ", evt);
     const wsMsg: WSMessage = JSON.parse(evt.data);
     const msgType = Object.keys(wsMsg)[0];
     const event = wsMsg[msgType];
@@ -144,6 +143,8 @@ function connectWebSocket() {
         if (!get(playItem) || get(playItem)?.id !== id) {
           console.log("CurrentPosEvent id =", id);
           const file = get(playList)?.files.get(id)!;
+          if (!file) return;
+
           const startPlay = false;
           const item = new PlayItem({
             file,

@@ -44,6 +44,8 @@
     progressValueChanging,
     rewindToValue,
     volumeValue,
+    isActiveDevice,
+    lastPlayActionTimestamp,
   } from "../state/stores";
   import { NavigateTarget, ShuffleMode, StorageKeys, WSMessageOutType } from "../types/enums";
   import { PlayItem } from "../types/play-item";
@@ -116,7 +118,7 @@
   function setCurrentTime(val: number, resetOffset = false) {
     if (resetOffset) timeOffset = 0;
     try {
-      if ($deviceId === $activeDeviceId && player) {
+      if (isActiveDevice() && player) {
         player.currentTime = val - timeOffset;
       }
       $progressValue = val;
@@ -226,7 +228,7 @@
     localStorage.setItem(StorageKeys.LAST_POSITION, currentTime.toString());
     reportPosition();
     updateBuffered();
-  }, 500);
+  }, 1000);
 
   $: if (currentTime != undefined && isFinite(currentTime)) {
     if (!$progressValueChanging) {
@@ -302,7 +304,7 @@
     const fullPath = `/${collection}/${filePath}`;
     $positionWsApi.enqueuePosition(fullPath, currentTime);
 
-    if ($deviceId === $activeDeviceId) {
+    if (isActiveDevice() && $playItem) {
       let currentPos: WSMessage = formatWSMessage(WSMessageOutType.CurrentPos, 
         { collection: $selectedCollection, track_id: $playItem.id, time: currentTime }
       );
@@ -311,9 +313,11 @@
   }
 
   async function startPlay(item: PlayItem): Promise<void> {
-    console.log("startPlay item:", item);
-
-    if (item) {
+    if (item && item.startPlay && $playList) {
+      console.log("startPlay item:", item);
+      if (!isActiveDevice()) {
+        $lastPlayActionTimestamp = Date.now();
+      }
       let source = item.url;
       // localStorage.setItem(StorageKeys.LAST_FILE, item.id);
       timeOffset = 0;
@@ -325,8 +329,8 @@
       fileDisplayName = splitExtInName(item).baseName;
       filePath = item.path;
       mime = item.mime;
-      folder = $playList?.files.get(item.id)?.parent_dir || "";
-      folderSize = $playList?.dirs?.get(folder)?.length || 0;
+      folder = $playList.files.get(item.id)?.parent_dir || "";
+      folderSize = $playList.dirs?.get(folder)?.length || 0;
       collection = $playList.collection;
 
       if (player) {
@@ -725,7 +729,7 @@
   }
 
   onMount(async () => {
-    if ($playItem) {
+    if ($playItem && $playItem.startPlay) {
       await startPlay($playItem);
     }
   });
@@ -865,7 +869,7 @@
       </div>
     </div>
     <div class="player">
-      {#if $deviceId === $activeDeviceId}
+      {#if isActiveDevice()}
       <audio
         preload="none"
         crossorigin="use-credentials"

@@ -1,4 +1,4 @@
-import { writable, derived, readable } from "svelte/store";
+import { writable, derived, readable, get } from "svelte/store";
 import { deviceName } from "../util/browser";
 import type { Writable, Readable } from "svelte/store";
 import { defaultConfig } from "../app-config";
@@ -42,6 +42,7 @@ export const progressValueChanging: Writable<boolean> = writable(false);
 export const rewindToValue: Writable<number | undefined> = writable(undefined);
 export const volumeValue: Writable<number | undefined> = writable(undefined);
 export const searchTerm: Writable<string> = writable('');
+export const lastPlayActionTimestamp: Writable<number> = writable(0);
 
 export const colApi = derived(
   apiConfig,
@@ -97,20 +98,6 @@ export const windowSize = readable(getWindowSize(), (set) => {
 
 export const sleepTime = writable(0);
 
-let deviceIdVal: String;
-let playingItem: PlayItem;
-let isPlayingState: boolean;
-let currentPlayList: CurrentPlayList;
-let devicesOnlineVal: Device[];
-let activeDeviceIdVal: String;
-
-deviceId.subscribe((value) => deviceIdVal = value);
-playItem.subscribe((value) => playingItem = value);
-isPaused.subscribe((value) => isPlayingState = value);
-playList.subscribe((value) => currentPlayList = value);
-devicesOnline.subscribe((value) => devicesOnlineVal = value);
-activeDeviceId.subscribe((value) => activeDeviceIdVal = value);
-
 let webSocket: WebSocket; 
 
 function connectWebSocket() {
@@ -148,11 +135,15 @@ function connectWebSocket() {
         const id: number = event["track_id"];
         const time: number = event["time"];
         const collection: number = event["collection"];
-        if (!playList || !currentPlayList) return;
+        if (!playList) return;
 
-        if (!playingItem || playingItem.id !== id) {
+        // Workaround for case when inactive device start play for another track and then 
+        // receives CurrentPosEvent for the previously playing track
+        if (Date.now() - get(lastPlayActionTimestamp) < 1000) return;
+
+        if (!get(playItem) || get(playItem)?.id !== id) {
           console.log("CurrentPosEvent id =", id);
-          const file = currentPlayList.files.get(id)!;
+          const file = get(playList)?.files.get(id)!;
           const startPlay = false;
           const item = new PlayItem({
             file,
@@ -161,9 +152,11 @@ function connectWebSocket() {
             time,
           });
           playItem.set(item);
-          selectedCollection.set(collection);
+          if (get(selectedCollection) !== collection) {
+            selectedCollection.set(collection);
+          }
         } else {
-          playingItem.time = time;
+          get(playItem)?.setTime(time);
         }
         
         isPaused.set(false);
@@ -180,10 +173,12 @@ function connectWebSocket() {
         const trackId = event["track_id"];
         const collection: number = event["collection"];
         isPaused.set(false);
-        const file = currentPlayList.files.get(trackId)!;
+        const file = get(playList)?.files.get(trackId)!;
         const time = 0.0;
         const startPlay = true;
-        selectedCollection.set(collection);
+        if (get(selectedCollection) !== collection) {
+          selectedCollection.set(collection);
+        }
         const item = new PlayItem({
           file,
           collection,
@@ -200,15 +195,15 @@ function connectWebSocket() {
       }
       case WSMessageInType.DevicesOnlineEvent: {
         devicesOnline.set(event["devices"]);
-        for (let device of devicesOnlineVal) {
+        for (let device of get(devicesOnline)) {
           if (device.active) {
               activeDeviceId.set(device.id);
               break;
           }
         };
 
-        console.log("Devices: ", devicesOnlineVal);
-        console.log("Selected device: " + activeDeviceIdVal);
+        console.log("Devices: ", get(devicesOnline));
+        console.log("Selected device: ", get(activeDeviceId));
 
         break;
       }
@@ -256,4 +251,8 @@ function waitForSocketConnection(callback: Function){
           waitForSocketConnection(callback);
       }
     }, 500);
+}
+
+export function isActiveDevice() {
+  return deviceId === activeDeviceId;
 }

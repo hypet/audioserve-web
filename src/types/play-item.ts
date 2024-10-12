@@ -120,4 +120,8 @@ export class PlayItem {
 
     return URL.createObjectURL(mediaSource);
   }
+
+  public setTime(time: number) {
+    this.time = time;
+  }
 }

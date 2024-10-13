@@ -255,5 +255,5 @@ function waitForSocketConnection(callback: Function){
 }
 
 export function isActiveDevice() {
-  return deviceId === activeDeviceId;
+  return get(deviceId) === get(activeDeviceId);
 }

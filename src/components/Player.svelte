@@ -205,8 +205,9 @@
       window.requestAnimationFrame(() => {
         // on recent Chrome range value is sometime updated in next animation frame
         jumpTime($progressValue);
-        if ($deviceId !== $activeDeviceId) {
+        if (!isActiveDevice()) {
           let rewindTo: WSMessage = formatWSMessage(WSMessageOutType.RewindTo, { time: $progressValue });
+          $lastPlayActionTimestamp = Date.now();
           sendWsMessage(rewindTo);
         }
         setTimeout(() => {
@@ -237,14 +238,13 @@
     updateMediaSessionState();
     lastPositionThrottler.throttle(currentTime);
   }
+
   async function loadTime(time: number, startPlayback = false) {
     console.debug(`Seeking time on url ${$playItem.url} to time ${time}`);
     const newUrl = $playItem.url + `&seek=${time}`;
     let wasPlaying = !$isPaused;
     timeOffset = time;
-    //player.src = null;
     player.src = newUrl;
-    //player.load()
     player.currentTime = 0;
     if (wasPlaying || startPlayback) {
       await playPlayer();

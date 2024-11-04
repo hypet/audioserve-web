@@ -82,7 +82,18 @@ export function instanceOfAudioFile(value: object): boolean {
     return isInstance;
 }
 
-export function AudioFileFromJSON(json: any): [number, AudioFile] {
+export function AudioFileFromJSON(json: any): AudioFile {
+    return {
+        'id': json['id'],
+        'name': json['name'],
+        'path': json['path'] as Array<string>,
+        'meta': !exists(json, 'meta') ? undefined : AudioFileMetaFromJSON(json['meta']),
+        'mime': json['mime'],
+        'section': !exists(json, 'section') ? undefined : AudioFileSectionFromJSON(json['section']),
+    };
+}
+
+export function AudioFileToIdFromJSON(json: any): [number, AudioFile] {
     return AudioFileFromJSONTyped(json, false);
 }
 
@@ -90,14 +101,7 @@ export function AudioFileFromJSONTyped(json: any, ignoreDiscriminator: boolean):
     if ((json === undefined) || (json === null)) {
         return json;
     }
-    return [json['id'], {
-        'id': json['id'],
-        'name': json['name'],
-        'path': json['path'] as Array<string>,
-        'meta': !exists(json, 'meta') ? undefined : AudioFileMetaFromJSON(json['meta']),
-        'mime': json['mime'],
-        'section': !exists(json, 'section') ? undefined : AudioFileSectionFromJSON(json['section']),
-    }];
+    return [json['id'], AudioFileFromJSON(json)];
 }
 
 export function AudioFileToJSON(value?: AudioFile | null): any {

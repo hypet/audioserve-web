@@ -27,6 +27,9 @@
     nonEmpty,
     sorted,
   } from "../util";
+  import {
+    pathToString
+  } from "../util/browser"
   import FileItem from "./FileItem.svelte";
   import Description from "./Description.svelte";
   import Cover from "./Cover.svelte";
@@ -36,6 +39,9 @@
   import Badge from "./Badge.svelte";
   import { Scroller } from "../util/dom";
   import { Observer } from "../util/intersect";
+  import { SortedMap } from "collections/sorted-map";
+  import { Set } from "collections/set";
+  import type { ScoredAudioFile } from "../client/models/ScoredAudioFile";
 
   const cache: Cache = getContext("cache");
   const history: HistoryWrapper = getContext("history");
@@ -51,7 +57,6 @@
 
   export let infoOpen = false;
   export const navigate = (where: NavigateTarget) => {
-    console.debug("navigate");    
     if (!folderIsPlaying()) {
       $selectedCollection = $playList.collection;
       $currentFolder = { value: $playList.folder, type: FolderType.REGULAR };
@@ -63,34 +68,27 @@
       }
     } else if (where === NavigateTarget.PLAYLIST_FOLDER) {
       if (!$playItem) return;
-
-      const item = $playList?.files.get($playItem?.id);
-      if (item) {
-        navigateTo(pathToString(item.path))();
-      }
+      navigateTo(pathToString($playItem.path))();
     }
   };
 
   let files: Map<number, AudioFile> = new Map<number, AudioFile>();
-  let dirs: Map<string, AudioFile[]> = new Map<string, AudioFile[]>();
+  let rootDirToSubfolders: SortedMap<string, Set<string>> = new SortedMap()
+  let subDirToTrackIds: SortedMap<string, number[]> = new SortedMap();
 
-  let filteredDirs: Map<string, AudioFile[]>;
+  let searchResult: ScoredAudioFile[] = [];
   $: {
     if ($searchTerm.length > 0) {
       if ($searchTerm != searchQuery) {
-        filteredDirs = searchFor($searchTerm);
-        console.log("Filtered dirs: ", filteredDirs);
-        rootSubfolders = Array.from(filteredDirs.keys());
-        console.log("Root subfolders: ", rootSubfolders);
+        searchFor($searchTerm);
+        searchQuery = $searchTerm;
       }
     } 
     else {
-      console.log("Reset Filtered dirs: ", filteredDirs);
-      filteredDirs = dirs;
-      rootSubfolders = Array.from(dirs.keys());
+      searchResult = [];
       $playList = {
         files: files,
-        dirs: dirs,
+        dirs: new Map(),
         collection: $selectedCollection,
         totalTime: folderTime,
         hasImage: coverPath && coverPath.length > 0,
@@ -98,7 +96,6 @@
     }
   }
 
-  let rootSubfolders: Array<string>;
   let folderPath: string | undefined;
   let searchQuery: string | undefined;
   let folderTime: number;
@@ -108,22 +105,6 @@
   let descriptionPath: string;
   let coverPath: string;
   
-  // Client-side search (not in use ATM)
-  function filterBySearchTerm(searchValue: string): Map<string, AudioFile[]> {
-    console.log("Start search");
-    let term = searchValue.toLowerCase();
-    let resultMap: Map<string, AudioFile[]> = new Map<string, AudioFile[]>();
-    dirs?.forEach((f: AudioFile[], dir: string) => {
-      if (dir.toLowerCase().match(term)) {
-        resultMap.set(dir, f);
-      } else {
-        resultMap.set(dir, f.filter(file => file.name.toLowerCase().match(term)));
-      }
-    });
-    console.log("End search");
-    return resultMap;
-  }
-
   async function search_request(query: string): Promise<SearchResult> {
     const result = await $colApi.colIdSearchGet({
         colId: $selectedCollection,
@@ -133,64 +114,18 @@
     return result;
   }
 
-  function searchFor(query: string): Map<string, AudioFile[]> {
-    var searchDirs = new Map<string, AudioFile[]>();
-      try {
-      search_request(query)
-        .then((result) => {
-          var searchFiles = result.files;
-          if (searchFiles == undefined) return searchDirs;
-          searchFiles.forEach((f: AudioFile) => {
-            var artist = null;
-            var title = null;
-            if (f.meta && f.meta.tags) {
-              const fileTags: Map<string, string> = f.meta.tags as Map<string, string>;
-              if (fileTags && fileTags.size > 0) {
-                artist = fileTags.get("Artist");
-                title = fileTags.get("Title");
-              }
-            }
-
-            const dir = pathToString(f.path);
-            const key = artist || dir;
-            const filesInDir = searchDirs.get(key) || [];
-            filesInDir.push(f);
-            searchDirs.set(dir, filesInDir);
-          });
-
-          $playList = {
-            files: searchFiles,
-            dirs: searchDirs,
-            collection: $selectedCollection,
-            totalTime: folderTime,
-            hasImage: coverPath && coverPath.length > 0,
-          };
-
-          searchQuery = query;
-          console.log(searchDirs);
-        })
-        .catch((error) => console.error(error));
-
-      // Other properties are not relevant and should be reset
-      // sharedPosition = undefined;
-      // folderPath = undefined;
-      // folderTime = undefined;
-      // folderTags = undefined;
-      // descriptionPath = undefined;
-      // coverPath = undefined;
-    } catch (resp) {
-      console.error("Cannot search", resp);
-      if (resp.status === 401) {
-        $isAuthenticated = false;
-      } else {
-        window.alert("Failed to search");
-        if (folderPath) {
-          $currentFolder = { type: FolderType.REGULAR, value: folderPath };
-        }
-      }
-    }
-
-    return searchDirs;
+  function searchFor(query: string) {
+    search_request(query).then((result) => {
+      searchResult = result.files || [];
+    })
+    .catch((error) => {
+      console.error(error);
+      searchResult = [];
+    }).then(() => {
+      const elem = container.firstChild;
+      const scroller = new Scroller(container);
+      if (elem != null) scroller.scrollToView(elem);
+    });
   }
 
   export async function loadAll() {
@@ -201,7 +136,8 @@
       });
 
       files = audioFolder.files!;
-      dirs = new Map<string, AudioFile[]>();
+      const rootDirToSubfoldersLocal: SortedMap<string, Set<string>> = new SortedMap();
+      const subDirToTrackIdsLocal: SortedMap<string, number[]> = new SortedMap();
 
       files.forEach((f: AudioFile) => {
         var artist = null;
@@ -214,21 +150,27 @@
           }
         }
 
+        const rootDir = f.path[0];
         const dir = pathToString(f.path);
-        const key = artist || dir;
-        const filesInDir = dirs.get(key) || [];
-        filesInDir.push(f);
-        dirs.set(dir, filesInDir);
+
+        const rootDirContent = rootDirToSubfoldersLocal.get(rootDir) || new Set<string>();
+        rootDirContent.add(pathToString(f.path.slice(1, f.path.length)));
+        rootDirToSubfoldersLocal.set(rootDir, rootDirContent);
+
+        const subDirContent = subDirToTrackIdsLocal.get(dir) || [];
+        subDirContent.push(f.id);
+        subDirToTrackIdsLocal.set(dir, subDirContent);
       });
 
       // folderTime = audioFolder.totalTime;
       // folderTags = audioFolder.tags;
       // descriptionPath = audioFolder.description?.path;
       // coverPath = audioFolder.cover?.path;
-
+      rootDirToSubfolders = rootDirToSubfoldersLocal;
+      subDirToTrackIds = subDirToTrackIdsLocal;
       $playList = {
         files,
-        dirs,
+        rootDirToSubfolders: rootDirToSubfoldersLocal,
         collection: $selectedCollection,
         totalTime: folderTime,
         hasImage: coverPath && coverPath.length > 0,
@@ -245,10 +187,6 @@
     } finally {
       // searchQuery = undefined;
     }
-  }
-
-  function pathToString(path: Array<string>): string {
-    return path.join(' > ');
   }
 
   export function constructHistoryState(scrollTo?: number): HistoryRecord {
@@ -401,41 +339,63 @@
 <div id="browser">
   <div class="folders-sidebar-wrap">
     <div class="folders-sidebar">
-      {#if filteredDirs.size > 0}
-        {#each sorted(rootSubfolders.map((subdir) => { return subdir })) as dir}
-        <div class="folder-item"><span role="link" on:click={navigateTo(dir)} >{dir}</span></div>
+      {#if searchResult.length === 0 && rootDirToSubfolders.size > 0 }
+        {#each rootDirToSubfolders.keys() as dir}
+        {@const subDirs = rootDirToSubfolders.get(dir)}
+        <details open role="region" aria-label="Folders" class="details-folder">
+          <summary class="subdir"><span class="subdir" role="link" on:click={navigateTo(dir)} >{dir}</span></summary>
+          <ul class="subdir-list">
+              {#each Array.from(subDirs) as subDir}
+              <span class="subdir" role="link" on:click={navigateTo(dir + " > " + subDir)} >{subDir}</span>
+              {/each}
+            </ul>
+          </details>
         {/each}
       {/if}
     </div>
   </div>
   <div class="main-browser-panel">
-    {#if filteredDirs.size > 0}
-      {#each sorted(Array.from(filteredDirs.keys())) as dir}
-      {@const fileList = filteredDirs.get(dir)}
-      {#if fileList && fileList.length > 0}
-      <details open role="region" id="dtl-{folderNameToId(fileList[0].path[fileList[0].path.length - 1])}" aria-label="Files" class="details-album">
-        <summary id="{folderNameToId(dir)}">{dir}<Badge value={fileList.length} />
-          <!-- <span class="files-duration"><ClockIcon />
-            <span>{formatTime(folderTime)}</span>
-          </span> -->
-          <!-- {#if $collections && $collections.folderDownload}
-            <a href={generateDownloadPath()} target="_self"><span class="summary-icons" aria-label="Download"><DownloadFolderIcon /></span></a>
-          {/if} -->
-        </summary>
+    {#if searchResult.length > 0}
+      {#each searchResult as scoredItem}
+      {@const file = scoredItem.item}
+      {@const dir = pathToString(file.path)}
+      {@const folderId = folderNameToId(dir)}
+      <details open role="region" aria-label="Files" class="details-album">
+        <summary id="{folderId}">{dir}</summary>
           <ul class="items-list">
-            {#each fileList.sort((a, b) => (a.name < b.name ? -1 : 1)) as file}
               <FileItem
                 {file}
                 position={file.id}
                 {container}
                 playFunction={startPlaying}
               />
-            {/each}
           </ul>
         </details>
-        {/if}
       {/each}
-    {/if}
+    {:else}
+      {#if subDirToTrackIds.size > 0}
+        {#each subDirToTrackIds.keys() as dir}
+          {@const subDirIdList = subDirToTrackIds.get(dir)}
+          {#if subDirIdList && subDirIdList.length > 0}
+          <details open role="region" aria-label="Files" class="details-album">
+            <summary id="{folderNameToId(dir)}">{dir}<Badge value={subDirIdList.length} />
+            </summary>
+              <ul class="items-list">
+                {#each subDirIdList as trackId}
+                {@const file = files.get(trackId)}
+                  <FileItem
+                    {file}
+                    position={file.id}
+                    {container}
+                    playFunction={startPlaying}
+                  />
+                {/each}
+              </ul>
+            </details>
+            {/if}
+          {/each}
+        {/if}
+      {/if}
   </div>
   {#if $currentFolder && $currentFolder.type === FolderType.REGULAR}
     <div class="browser-sidebar">
@@ -556,9 +516,20 @@
   .details-album {
     --spacing: 0.2rem;
   }
+  .details-folder {
+    --spacing: 0.4rem;
+  }
   summary {
     font-weight: bold;
     font-size: 0.9rem;
+    line-height: 0.9rem;
+  }
+  span.subdir {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    font-weight: normal;
+    font-size: 0.7rem;
     line-height: 0.9rem;
   }
 </style>

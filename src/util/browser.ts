@@ -161,3 +161,7 @@ export function deviceName(): string {
 
   return match.join(' ').concat(' on ', navigator.platform)
 }
+
+export function pathToString(path: Array<string>): string {
+  return path.join(' > ');
+}

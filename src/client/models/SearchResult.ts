@@ -13,12 +13,7 @@
  */
 
 import { exists, mapValues } from '../runtime';
-import type { AudioFile } from './AudioFile';
-import {
-    AudioFileFromJSON,
-    AudioFileFromJSONTyped,
-    AudioFileToJSON,
-} from './AudioFile';
+import { ScoredAudioFileFromJSON, type ScoredAudioFile } from './ScoredAudioFile';
 import type { Subfolder } from './Subfolder';
 import {
     SubfolderFromJSON,
@@ -32,17 +27,7 @@ import {
  * @interface SearchResult
  */
 export interface SearchResult {
-    /**
-     * Not used now, only subfolders are searched
-     * @type {Map<number, AudioFile>}
-     * @memberof SearchResult
-     */
-    files?: Map<number, AudioFile>;
-    /**
-     * 
-     * @type {Array<Subfolder>}
-     * @memberof SearchResult
-     */
+    files?: Array<ScoredAudioFile>;
     subfolders?: Array<Subfolder>;
 }
 
@@ -65,7 +50,7 @@ export function SearchResultFromJSONTyped(json: any, ignoreDiscriminator: boolea
     }
     return {
         
-        'files': !exists(json, 'files') ? undefined : new Map((json['files'] as Array<any>).map(AudioFileFromJSON)),
+        'files': !exists(json, 'files') ? undefined : ((json['files'] as Array<any>).map(ScoredAudioFileFromJSON)),
         'subfolders': !exists(json, 'subfolders') ? undefined : ((json['subfolders'] as Array<any>).map(SubfolderFromJSON)),
     };
 }

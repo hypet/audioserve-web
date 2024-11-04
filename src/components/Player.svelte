@@ -54,7 +54,7 @@
   import CacheIndicator from "./CacheIndicator.svelte";
   import CoverIcon from "./FolderIcon.svelte";
   import { Throttler } from "../util/events";
-  import { getLocationPath, saveConfig } from "../util/browser";
+  import { getLocationPath, pathToString, saveConfig } from "../util/browser";
   import { calculateAutorewind, randomIntFromInterval } from "../util/play";
   import { SMALL_SCREEN_WIDTH_LIMIT } from "../types/constants";
   import TimerControl from "./TimerControl.svelte";
@@ -297,7 +297,7 @@
     };
   }
 
-  $: folderSize = $playList?.files.size || 0;
+  $: folderSize = $playList?.files.length || 0;
 
   function reportPosition(force?: boolean) {
     if (($isPaused && !force) || isNaN(currentTime)) return;
@@ -323,12 +323,13 @@
       if (item.time != null && isFinite(item.time)) {
         setCurrentTime(item.time);
       }
+      const path = pathToString(item.path);
       expectedDuration = item.duration;
       duration = 0;
       fileDisplayName = splitExtInName(item).baseName;
-      filePath = item.path;
+      filePath = path;
       mime = item.mime;
-      folder = $playList.files.get(item.id)?.parent_dir || "";
+      folder = path || "";
       folderSize = $playList.dirs?.get(folder)?.length || 0;
       collection = $playList.collection;
 
@@ -588,8 +589,10 @@
   }
 
   function playPosition(nextPosition: number, startPlay = true) {
+    if (!$playList) return;
     if (nextPosition >= 0 && nextPosition < $playList.files.size) {
       const nextFile = $playList.files.get(nextPosition);
+      if (!nextFile) return;
       const item = new PlayItem({
         file: nextFile,
         startPlay,
@@ -598,7 +601,6 @@
       });
       $playItem = item;
 
-      const folder = splitPath($playItem.path).folder;
       let playTrack: WSMessage = formatWSMessage(WSMessageOutType.PlayTrack, 
         { collection: $selectedCollection, track_id: $playItem.id }
       );
@@ -627,6 +629,7 @@
     if (ShuffleMode[$activeShuffleMode] === ShuffleMode.Off) {
       playPosition($playItem.id + 1, !$isPaused);
     } else {
+      if (!$playList) return;
       const nextRandomInt = randomIntFromInterval(1, $playList.files.size - 1);
       console.log("nextRandomInt id", nextRandomInt);
       playPosition(nextRandomInt, !$isPaused);

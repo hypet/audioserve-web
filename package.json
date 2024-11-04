@@ -22,6 +22,7 @@
   "dependencies": {
     "@picocss/pico": "^1.5.10",
     "base64-js": "^1.5.1",
+    "collections": "^5.1.13",
     "showdown": "^2.1.0",
     "svelte-material-icons": "^3.0.5"
   }

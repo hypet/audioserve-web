@@ -22,14 +22,12 @@
 
   export let file: AudioFile;
   export let position: number;
-  export let container: HTMLElement;
   export let playFunction: (
     position: number,
     startPlay: boolean,
     time: number
   ) => void;
 
-  $: scroller = container ? new Scroller(container) : null;
   let title: string;
   let baseName: string;
   let extension: string;

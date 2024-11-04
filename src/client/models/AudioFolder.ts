@@ -17,6 +17,7 @@ import type { AudioFile } from './AudioFile';
 import {
     AudioFileFromJSON,
     AudioFileFromJSONTyped,
+    AudioFileToIdFromJSON,
     AudioFileToJSON,
 } from './AudioFile';
 import type { PositionShort } from './PositionShort';
@@ -112,7 +113,7 @@ export function AudioFolderFromJSONTyped(json: any, ignoreDiscriminator: boolean
         'isFile': !exists(json, 'is_file') ? undefined : json['is_file'],
         'modified': !exists(json, 'modified') ? undefined : json['modified'],
         'totalTime': !exists(json, 'total_time') ? undefined : json['total_time'],
-        'files': !exists(json, 'files') ? undefined : new Map((json['files'] as Array<any>).map(AudioFileFromJSON)),
+        'files': !exists(json, 'files') ? undefined : new Map((json['files'] as Array<any>).map(AudioFileToIdFromJSON)),
         'subfolders': !exists(json, 'subfolders') ? undefined : (json['subfolders'] as Array<any>).map(SubfolderFromJSON),
         'cover': !exists(json, 'cover') ? undefined : TypedFileFromJSON(json['cover']),
         'description': !exists(json, 'description') ? undefined : TypedFileFromJSON(json['description']),

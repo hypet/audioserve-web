@@ -45,7 +45,6 @@
 
   const cache: Cache = getContext("cache");
   const history: HistoryWrapper = getContext("history");
-  const dispatch = createEventDispatcher();
   
   export let container: HTMLDivElement;
   let observer: Observer;
@@ -232,6 +231,7 @@
     const file = files.get(position)!;
     const item = new PlayItem({
       file,
+      collection: $selectedCollection,
       startPlay,
       time,
     });

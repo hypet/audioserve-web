@@ -7,7 +7,7 @@ import type { AudioFileExt } from "./types";
 
 export interface PlayItemParams {
   file: AudioFileExt;
-  collection?: number;
+  collection: number;
   startPlay?: boolean;
   time?: number;
 }
@@ -22,6 +22,7 @@ export class PlayItem {
   cached: boolean;
   time?: number;
   mime: string;
+  collection: number;
 
   constructor(params: PlayItemParams) {
     this.id = params.file.id;
@@ -33,6 +34,7 @@ export class PlayItem {
     this.startPlay = params.startPlay;
     this.time = params.time;
     this.mime = params.file.mime;
+    this.collection = params.collection;
   }
 
     // private constructURL(file: AudioFileExt, collection?: number) {

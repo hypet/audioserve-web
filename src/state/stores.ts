@@ -22,6 +22,7 @@ import {
 } from "../types/types";
 import { isDevelopment } from "../util/version";
 import { baseWsUrl } from "../util/browser";
+import { setContext } from "svelte";
 
 export const isAuthenticated = writable(true);
 export const apiConfig = writable(new Configuration());
@@ -173,6 +174,7 @@ function connectWebSocket() {
       case WSMessageInType.PlayTrackEvent: {
         const trackId = event["track_id"];
         const collection: number = event["collection"];
+        console.log("PlayTrackEvent", trackId, collection);
         isPaused.set(false);
         const file = get(playList)?.files.get(trackId)!;
         const time = 0.0;
@@ -213,7 +215,35 @@ function connectWebSocket() {
         deviceId.set(event["device_id"]);
         break;
       case WSMessageInType.MakeDeviceActiveEvent:
+        console.debug("MakeDeviceActiveEvent", event["device_id"]);
         activeDeviceId.set(event["device_id"]);
+        console.log("Selected device: ", get(activeDeviceId), isActiveDevice());
+        setContext("isActive", isActiveDevice());
+        const curItem = get(playItem);
+        console.debug("curItem", curItem);
+        
+        if (!curItem) {
+          break;
+        }
+        const collection: number = curItem.collection;
+        console.debug("collection", collection);
+        const file = get(playList)?.files.get(curItem!.id)!;
+        const time = get(progressValue);
+        const startPlay = true;
+        if (get(selectedCollection) !== collection) {
+          selectedCollection.set(collection);
+        }
+        const item = new PlayItem({
+          file,
+          collection,
+          startPlay,
+          time,
+        });
+        playItem.set(item);
+        // } else {
+
+        // }
+
         break;
       case WSMessageInType.SwitchShuffleEvent:
         const mode = event["mode"];

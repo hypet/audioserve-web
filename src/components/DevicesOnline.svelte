@@ -5,7 +5,7 @@
   import type { WSMessage } from "../types/types";
   import { formatWSMessage } from "../types/types";
   import { WSMessageOutType } from "../types/enums";
-  import { sendWsMessage, deviceId, activeDeviceId, devicesOnline } from "../state/stores";
+  import { sendWsMessage, deviceId, activeDeviceId, devicesOnline, isActiveDevice } from "../state/stores";
   const dispatch = createEventDispatcher();
 
   let deviceListVisible = false;

@@ -35,8 +35,6 @@
     positionWsApi,
     selectedCollection,
     windowSize,
-    deviceId,
-    activeDeviceId,
     activeShuffleMode,
     isPaused,
     sendWsMessage,
@@ -46,6 +44,8 @@
     volumeValue,
     isActiveDevice,
     lastPlayActionTimestamp,
+    activeDeviceId,
+    deviceId,
   } from "../state/stores";
   import { NavigateTarget, ShuffleMode, StorageKeys, WSMessageOutType } from "../types/enums";
   import { PlayItem } from "../types/play-item";
@@ -85,6 +85,7 @@
   const dispatch = createEventDispatcher();
   const cache: Cache = getContext("cache");
 
+  $: isActive = getContext("isActive")
   let expanded = $config.expandedPlayerTray;
 
   let previousTime: number; // sum of time of previous items
@@ -118,7 +119,7 @@
   function setCurrentTime(val: number, resetOffset = false) {
     if (resetOffset) timeOffset = 0;
     try {
-      if (isActiveDevice() && player) {
+      if (isActive && player) {
         player.currentTime = val - timeOffset;
       }
       $progressValue = val;
@@ -205,7 +206,7 @@
       window.requestAnimationFrame(() => {
         // on recent Chrome range value is sometime updated in next animation frame
         jumpTime($progressValue);
-        if (!isActiveDevice()) {
+        if (!isActive) {
           let rewindTo: WSMessage = formatWSMessage(WSMessageOutType.RewindTo, { time: $progressValue });
           $lastPlayActionTimestamp = Date.now();
           sendWsMessage(rewindTo);
@@ -241,7 +242,7 @@
 
   async function loadTime(time: number, startPlayback = false) {
     console.debug(`Seeking time on url ${$playItem.url} to time ${time}`);
-    const newUrl = $playItem.url + `&seek=${time}`;
+    const newUrl = $playItem.url + `?seek=${time}`;
     let wasPlaying = !$isPaused;
     timeOffset = time;
     player.src = newUrl;
@@ -249,6 +250,15 @@
     if (wasPlaying || startPlayback) {
       await playPlayer();
     }
+  }
+
+  async function continueFromTime(time: number) {
+    console.debug(`continueFromTime on url ${$playItem.url} to time ${time}`);
+    const newUrl = $playItem.url + "?seek=0";
+    timeOffset = time;
+    player.src = newUrl;
+    player.currentTime = time;
+    await playPlayer();
   }
 
   const safeToSeekInPlayer = (time: number) => {
@@ -304,7 +314,7 @@
     const fullPath = `/${collection}/${filePath}`;
     $positionWsApi.enqueuePosition(fullPath, currentTime);
 
-    if (isActiveDevice() && $playItem) {
+    if (isActive && $playItem) {
       let currentPos: WSMessage = formatWSMessage(WSMessageOutType.CurrentPos, 
         { collection: $selectedCollection, track_id: $playItem.id, time: currentTime }
       );
@@ -315,7 +325,7 @@
   async function startPlay(item: PlayItem): Promise<void> {
     if (item && item.startPlay && $playList) {
       console.log("startPlay item:", item);
-      if (!isActiveDevice()) {
+      if (!isActive) {
         $lastPlayActionTimestamp = Date.now();
       }
       let source = item.url;
@@ -387,6 +397,7 @@
       isFinite(duration) &&
       currentTime <= duration
     ) {
+      if (!isActive) { return; }
       navigator.mediaSession?.setPositionState({
         duration,
         playbackRate: player.playbackRate,
@@ -490,7 +501,7 @@
   }
 
   async function playPlayer() {
-    if ($deviceId !== $activeDeviceId && !player) {
+    if (!isActive && !player) {
       console.log("This device is not active");
       return;
     }
@@ -518,7 +529,8 @@
         await loadTime($progressValue, true);
       }
     } else {
-      await playPlayer();
+      await continueFromTime($progressValue);
+      // await playPlayer();
     }
     tryCacheAhead(folderPosition, cached);
   }
@@ -732,6 +744,7 @@
 
   onMount(async () => {
     if ($playItem && $playItem.startPlay) {
+      console.log("onMount startPlay");
       await startPlay($playItem);
     }
   });
@@ -868,7 +881,7 @@
       </div>
     </div>
     <div class="player">
-      {#if isActiveDevice()}
+      {#if isActive}
       <audio
         preload="none"
         crossorigin="use-credentials"
@@ -892,7 +905,7 @@
             type="range"
             id="playback-progress"
             min="0"
-            max={$playItem.duration}
+            max={$playItem?.duration}
             bind:value={$progressValue}
             on:mousedown={handleProgressMouseDown}
             on:touchstart={handleProgressMouseDown}
@@ -900,7 +913,9 @@
             aria-valuetext={`${formattedCurrentTime} of ${formattedDuration}`}
             on:keydown={(evt) => evt.preventDefault()}
           />
-          <CacheIndicator ranges={buffered} totalTime={$playItem.duration} />
+          {#if isActive}
+          <CacheIndicator ranges={buffered} totalTime={$playItem?.duration} />
+          {/if}
         </div>
       </div>
       <div class="total-time" aria-label="Total time of current file">

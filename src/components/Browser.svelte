@@ -54,6 +54,10 @@
     }
   }
 
+  $: if (selectedCollection) {
+    loadAll();
+  }
+
   export let infoOpen = false;
   export const navigate = (where: NavigateTarget) => {
     if (!folderIsPlaying()) {
